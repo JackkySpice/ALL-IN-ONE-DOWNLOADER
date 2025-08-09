@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { Download, Music2, PlayCircle, Youtube, Instagram, Facebook, Music, BadgeCheck, Link as LinkIcon, Loader2, Crown, ShieldCheck, Video, Waves, Sparkles, RefreshCw } from 'lucide-react'
+import { Download, Music2, PlayCircle, Youtube, Instagram, Facebook, Music, BadgeCheck, Link as LinkIcon, Loader2, Crown, ShieldCheck, Video, Waves, Sparkles, RefreshCw, Info, CheckCircle2 } from 'lucide-react'
 import clsx from 'clsx'
 
 const PLATFORMS = [
@@ -103,11 +103,15 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900">
-      <header className="sticky top-0 z-30 backdrop-blur border-b border-white/10 bg-slate-950/70">
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900" />
+      <div className="absolute inset-0 bg-grid opacity-[0.35]" />
+      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-80 w-[40rem] rounded-full blur-3xl bg-gradient-to-r from-fuchsia-500/20 via-purple-500/20 to-cyan-400/20" />
+
+      <header className="relative z-10 sticky top-0 backdrop-blur border-b border-white/10 bg-slate-950/70">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-cyan-400 grid place-items-center shadow-lg shadow-fuchsia-500/20">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-cyan-400 grid place-items-center shadow-lg shadow-fuchsia-500/20 glow">
               <Download className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -123,9 +127,9 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-10">
+      <main className="relative z-10 max-w-6xl mx-auto px-4 py-10">
         <section className="text-center">
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white">
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white">
             Download from <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-400">YouTube</span>, Facebook, TikTok, Instagram & SoundCloud
           </h1>
           <p className="mt-3 text-slate-400 max-w-2xl mx-auto">
@@ -171,12 +175,21 @@ export default function App() {
                   type="submit"
                   className={clsx(
                     'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition-all',
-                    'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 text-white shadow-lg shadow-fuchsia-500/20 hover:shadow-fuchsia-500/30'
+                    'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 text-white shadow-lg hover:shadow-xl hover:shadow-fuchsia-500/30'
                   )}
                   disabled={loading}
                 >
                   {loading ? (<><Loader2 className="h-4 w-4 animate-spin"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4"/> Analyze</>)}
                 </button>
+              </div>
+
+              <div className="relative px-4 pb-4 text-left text-xs text-slate-400">
+                <div className="inline-flex items-center gap-2"><Info className="h-3.5 w-3.5"/> Tip: For private/age-gated videos, add cookies on the server via <code className="px-1 rounded bg-white/10">AOI_COOKIEFILE</code>.</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample TikTok</button>
+                  <button type="button" onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample YouTube</button>
+                  <button type="button" onClick={() => setUrl('https://www.facebook.com/watch/?v=10153231379946729')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample Facebook</button>
+                </div>
               </div>
             </div>
           </form>
@@ -244,6 +257,15 @@ export default function App() {
               </div>
             </div>
           </section>
+        )}
+
+        {!data && !error && (
+          <div className="mt-10 text-center text-sm text-slate-400">
+            <div className="inline-flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400"/>
+              Supports direct downloads for most sites. For HLS/DASH, a compatible player/app may be required.
+            </div>
+          </div>
         )}
 
         <section className="mt-12 text-center text-xs text-slate-500">

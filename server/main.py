@@ -314,49 +314,49 @@ async def proxy_download(request: Request, source: str, format_id: str):
     filename = f"{title}.{ext}"
 
     # Open upstream connection first to obtain real status and headers (supports 206 for Range)
-    async with httpx.AsyncClient(follow_redirects=True, timeout=None) as client:
-        request_up = client.build_request("GET", direct_url, headers=headers)
-        resp = await client.send(request_up, stream=True)
+    client = httpx.AsyncClient(follow_redirects=True, timeout=None)
+    request_up = client.build_request("GET", direct_url, headers=headers)
+    resp = await client.send(request_up, stream=True)
 
-        upstream_status = resp.status_code
-        upstream_headers = resp.headers
+    upstream_status = resp.status_code
+    upstream_headers = resp.headers
 
-        passthrough_header_names = [
-            "Content-Type",
-            "Content-Length",
-            "Content-Range",
-            "Accept-Ranges",
-            "ETag",
-            "Last-Modified",
-            "Cache-Control",
-        ]
-        response_headers = {
-            # Always set Content-Disposition for nicer filename
-            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
-            # Don't cache proxied downloads
-            "Cache-Control": "no-store",
-        }
-        for name in passthrough_header_names:
-            if name in upstream_headers and upstream_headers.get(name):
-                response_headers[name] = upstream_headers.get(name)
+    passthrough_header_names = [
+        "Content-Type",
+        "Content-Length",
+        "Content-Range",
+        "Accept-Ranges",
+        "ETag",
+        "Last-Modified",
+        "Cache-Control",
+    ]
+    response_headers = {
+        # Always set Content-Disposition for nicer filename
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+        # Don't cache proxied downloads
+        "Cache-Control": "no-store",
+    }
+    for name in passthrough_header_names:
+        if name in upstream_headers and upstream_headers.get(name):
+            response_headers[name] = upstream_headers.get(name)
 
-        media_type = upstream_headers.get("Content-Type") or "application/octet-stream"
+    media_type = upstream_headers.get("Content-Type") or "application/octet-stream"
 
-        async def body_iter():
-            try:
-                async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
-                    if chunk:
-                        yield chunk
-            finally:
-                await resp.aclose()
-                await client.aclose()
+    async def body_iter():
+        try:
+            async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            await resp.aclose()
+            await client.aclose()
 
-        return StreamingResponse(
-            body_iter(),
-            media_type=media_type,
-            headers=response_headers,
-            status_code=upstream_status,
-        )
+    return StreamingResponse(
+        body_iter(),
+        media_type=media_type,
+        headers=response_headers,
+        status_code=upstream_status,
+    )
 
 
 # Serve frontend (Vite build) if present
