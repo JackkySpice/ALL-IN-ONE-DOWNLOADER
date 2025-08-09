@@ -1,5 +1,10 @@
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
-yt-dlp>=2024.08.06
+# Pin to recent yt-dlp to catch latest extractors
+yt-dlp>=2025.01.10
 aiofiles==23.2.1
-httpx==0.28.1
+# Enable HTTP/2
+httpx[http2]==0.28.1
+# Brotli decoding (some CDNs compress segments aggressively)
+brotli==1.1.0
+curl_cffi==0.7.1

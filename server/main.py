@@ -14,6 +14,12 @@ try:
 except Exception as e:
     raise e
 
+# Optional curl_cffi for hardened downloads (e.g., TikTok anti-bot)
+try:
+    from curl_cffi import requests as curl_requests  # type: ignore
+except Exception:
+    curl_requests = None
+
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(APP_DIR, os.pardir))
 DIST_DIR = os.path.join(REPO_ROOT, "web", "dist")
@@ -113,6 +119,8 @@ def build_ydl_opts(source_url: Optional[str] = None, format_selector: Optional[s
         "skip_download": True,
         "cachedir": False,
         "nocheckcertificate": True,
+        # Prefer IPv4 to avoid some CDN / IPv6 edge cases
+        "prefer_ipv4": True,
         "retries": 5,
         "extractor_retries": 3,
         "fragment_retries": 5,
@@ -124,6 +132,8 @@ def build_ydl_opts(source_url: Optional[str] = None, format_selector: Optional[s
             "User-Agent": user_agent,
             "Accept-Language": os.getenv("AOI_ACCEPT_LANGUAGE", "en-US,en;q=0.9"),
             **({"Referer": referer} if referer else {}),
+            # Some CDNs (e.g., TikTok, Facebook) validate Origin
+            **({"Origin": referer[:-1]} if referer else {}),
         },
         # Improve success rate across geo/IPv6/proxy constraints
         "geo_bypass": True,
@@ -271,10 +281,20 @@ async def proxy_download(request: Request, source: str, format_id: str):
     if not source or not format_id:
         raise HTTPException(status_code=400, detail="Missing source or format_id")
 
-    # Re-extract to get fresh format URL and headers
+    # Re-extract to get fresh format URL and headers, and capture cookies
+    cookie_header: Optional[str] = None
     try:
         with youtube_dl.YoutubeDL(build_ydl_opts(source, format_selector=f"{format_id}")) as ydl:
             info = ydl.extract_info(source, download=False)
+            # Prepare cookie header for the eventual direct URL domain
+            try:
+                # We'll compute exact host later; temporarily keep full cookie jar
+                ydl_cookiejar = getattr(ydl, "cookiejar", None)
+                if ydl_cookiejar is not None:
+                    # defer building cookie header until we know direct_url
+                    pass
+            except Exception:
+                pass
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
 
@@ -297,11 +317,43 @@ async def proxy_download(request: Request, source: str, format_id: str):
     if target.get("http_headers"):
         headers.update(target.get("http_headers") or {})
 
-    # Ensure we always include a decent UA and a sensible Referer
+    # Ensure we always include a decent UA and a sensible Referer / Origin
     headers.setdefault("User-Agent", _get_default_user_agent())
     referer = _build_referer_for(source)
     if referer:
         headers.setdefault("Referer", referer)
+        headers.setdefault("Origin", referer[:-1])
+
+    # If yt-dlp had cookies for this host, include them
+    try:
+        parsed_direct = urlparse(direct_url)
+        host = parsed_direct.hostname
+        if host:
+            # Build cookie header from info-level cookies if present (yt-dlp cookiejar not exposed via info)
+            # Attempt to attach any cookies present in info["http_headers"] first
+            cookie_from_info = (info.get("http_headers") or {}).get("Cookie")
+            if cookie_from_info:
+                headers.setdefault("Cookie", cookie_from_info)
+            else:
+                # No Cookie header provided by extractor; try reconstructing from cookiejar on a best-effort basis
+                try:
+                    with youtube_dl.YoutubeDL(build_ydl_opts(source)) as y2:
+                        cj = getattr(y2, "cookiejar", None)
+                except Exception:
+                    cj = None
+                if cj:
+                    cookie_pairs = []
+                    for c in cj:
+                        # Match domain loosely
+                        if not getattr(c, "domain", None):
+                            continue
+                        dom = c.domain.lstrip(".")
+                        if host.endswith(dom):
+                            cookie_pairs.append(f"{c.name}={c.value}")
+                    if cookie_pairs:
+                        headers.setdefault("Cookie", "; ".join(cookie_pairs))
+    except Exception:
+        pass
 
     # Forward client Range if present (enables resumable/partial content)
     client_range = request.headers.get("Range")
@@ -314,7 +366,8 @@ async def proxy_download(request: Request, source: str, format_id: str):
     filename = f"{title}.{ext}"
 
     # Open upstream connection first to obtain real status and headers (supports 206 for Range)
-    client = httpx.AsyncClient(follow_redirects=True, timeout=None)
+    # Enable HTTP/2 if available for better CDN compatibility (requires httpx[http2])
+    client = httpx.AsyncClient(follow_redirects=True, timeout=None, http2=True)
     request_up = client.build_request("GET", direct_url, headers=headers)
     resp = await client.send(request_up, stream=True)
 
@@ -341,6 +394,55 @@ async def proxy_download(request: Request, source: str, format_id: str):
             response_headers[name] = upstream_headers.get(name)
 
     media_type = upstream_headers.get("Content-Type") or "application/octet-stream"
+
+    # If we hit common anti-bot statuses, retry with curl_cffi (Chrome impersonation)
+    if upstream_status in {401, 403, 405, 409, 410, 412, 418, 421, 429, 451} and curl_requests:
+        try:
+            # Close httpx stream before retry
+            await resp.aclose()
+            await client.aclose()
+
+            impersonate = os.getenv("AOI_IMPERSONATE", "chrome")
+            # curl_cffi is synchronous; wrap its streaming in an async generator
+            sess = curl_requests.Session()
+            # Allow redirects and stream content
+            curl_resp = sess.get(
+                direct_url,
+                headers=dict(headers),
+                stream=True,
+                allow_redirects=True,
+                impersonate=impersonate,
+                timeout=None,
+            )
+
+            # Merge headers again from curl response
+            ch = curl_resp.headers or {}
+            media_type = ch.get("Content-Type", media_type)
+            for name in passthrough_header_names:
+                if name in ch and ch.get(name):
+                    response_headers[name] = ch.get(name)
+
+            async def curl_body_iter():
+                try:
+                    for chunk in curl_resp.iter_content(chunk_size=64 * 1024):
+                        if chunk:
+                            yield chunk
+                finally:
+                    try:
+                        curl_resp.close()
+                        sess.close()
+                    except Exception:
+                        pass
+
+            return StreamingResponse(
+                curl_body_iter(),
+                media_type=media_type,
+                headers=response_headers,
+                status_code=curl_resp.status_code,
+            )
+        except Exception:
+            # Fall back to original resp below
+            pass
 
     async def body_iter():
         try:
