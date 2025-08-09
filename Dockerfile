@@ -3,6 +3,11 @@ FROM nikolaik/python-nodejs:python3.11-nodejs20
 
 WORKDIR /app
 
+# Install system deps for yt-dlp extractors
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
 # Copy source
 COPY server/ server/
 COPY web/ web/

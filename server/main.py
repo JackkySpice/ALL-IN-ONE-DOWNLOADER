@@ -1,13 +1,13 @@
 import os
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 import httpx
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 try:
     import yt_dlp as youtube_dl
@@ -36,6 +36,8 @@ class FormatModel(BaseModel):
     audio_bitrate: Optional[int] = None
     direct_url: Optional[str] = None
     is_audio_only: bool = False
+    # Protocol hint (http, m3u8, etc.) for better client decisions
+    protocol: Optional[str] = None
 
 
 class ExtractResponse(BaseModel):
@@ -75,6 +77,74 @@ app.add_middleware(
 )
 
 
+def _get_default_user_agent() -> str:
+    # Reasonably up-to-date desktop UA; can be overridden via env
+    return (
+        os.getenv("AOI_USER_AGENT")
+        or "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    )
+
+
+def _build_referer_for(url: str) -> Optional[str]:
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}/"
+    except Exception:
+        pass
+    return None
+
+
+def build_ydl_opts(source_url: Optional[str] = None, format_selector: Optional[str] = None) -> dict:
+    """Construct yt-dlp options with env-driven overrides and robust defaults."""
+    user_agent = _get_default_user_agent()
+    referer = _build_referer_for(source_url) if source_url else None
+
+    # Allow env-driven YouTube client fallback list (comma-separated)
+    yt_clients_env = os.getenv("AOI_YT_CLIENTS", "android,ios,webmobile,web").split(",")
+    yt_clients = [c.strip() for c in yt_clients_env if c.strip()]
+
+    ydl_opts: dict = {
+        "quiet": True,
+        "no_warnings": True,
+        "restrictfilenames": True,
+        "noplaylist": True,
+        "skip_download": True,
+        "cachedir": False,
+        "nocheckcertificate": True,
+        "retries": 5,
+        "extractor_retries": 3,
+        "fragment_retries": 5,
+        # Prefer muxed MP4 (non-AV1), otherwise best.
+        "format": format_selector
+        or "best[ext=mp4][vcodec!*=av01]/best/bv*+ba/b",
+        # Some sites need proper headers
+        "http_headers": {
+            "User-Agent": user_agent,
+            "Accept-Language": os.getenv("AOI_ACCEPT_LANGUAGE", "en-US,en;q=0.9"),
+            **({"Referer": referer} if referer else {}),
+        },
+        # Improve success rate across geo/IPv6/proxy constraints
+        "geo_bypass": True,
+        **({"source_address": os.getenv("AOI_SOURCE_ADDRESS")} if os.getenv("AOI_SOURCE_ADDRESS") else {}),
+        **({"proxy": os.getenv("AOI_PROXY")} if os.getenv("AOI_PROXY") else {}),
+        # YouTube tweaks
+        "extractor_args": {
+            "youtube": {
+                # Try multiple clients to dodge age/signature/region gates
+                "player_client": yt_clients,
+            }
+        },
+    }
+
+    cookiefile = os.getenv("AOI_COOKIEFILE")
+    if cookiefile and os.path.exists(cookiefile):
+        ydl_opts["cookiefile"] = cookiefile
+
+    return ydl_opts
+
+
 @app.get("/api/health")
 async def health() -> dict:
     return {"status": "ok"}
@@ -85,30 +155,24 @@ async def extract_media(req: ExtractRequest):
     if not req.url:
         raise HTTPException(status_code=400, detail="Missing url")
 
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "restrictfilenames": True,
-        "noplaylist": True,
-        "skip_download": True,
-        "cachedir": False,
-        "nocheckcertificate": True,
-        # favor muxed best, otherwise best video+audio
-        "format": "best[ext=mp4][vcodec!*=av01]/best/bv*+ba/b",
-        # Some sites need a proper UA
-        "http_headers": {
-            "User-Agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-            )
-        },
-    }
-
+    # First attempt with default options
     try:
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        with youtube_dl.YoutubeDL(build_ydl_opts(req.url)) as ydl:
             info = ydl.extract_info(req.url, download=False)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
+    except Exception as first_err:
+        # Best-effort fallback: switch UA to mobile and adjust YouTube client ordering
+        try:
+            mobile_ua = (
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 "
+                "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+            )
+            os.environ.setdefault("AOI_USER_AGENT", mobile_ua)
+            with youtube_dl.YoutubeDL(
+                build_ydl_opts(req.url, format_selector="best/bv*+ba/b")
+            ) as ydl:
+                info = ydl.extract_info(req.url, download=False)
+        except Exception as second_err:
+            raise HTTPException(status_code=400, detail=f"Extraction failed: {second_err}") from second_err
 
     # If it's a playlist, pick the first entry
     if info.get("entries"):
@@ -142,6 +206,8 @@ async def extract_media(req: ExtractRequest):
         bitrate = f.get("abr") or f.get("tbr")
         audio_bitrate = int(bitrate) if isinstance(bitrate, (int, float)) else None
 
+        protocol = f.get("protocol")
+
         formats.append(
             FormatModel(
                 format_id=str(f.get("format_id")),
@@ -155,14 +221,23 @@ async def extract_media(req: ExtractRequest):
                 audio_bitrate=audio_bitrate,
                 direct_url=direct_url,
                 is_audio_only=is_audio_only,
+                protocol=protocol,
             )
         )
 
-    # Sort formats: muxed first, then by resolution/bitrate descending
+    # Sort formats: prefer direct HTTP(S) muxed MP4, then by resolution/bitrate
     def sort_key(fmt: FormatModel):
-        # Muxed preferred (both audio+video)
         muxed_priority = 0 if (fmt.vcodec and fmt.acodec and fmt.vcodec != "none" and fmt.acodec != "none") else 1
-        # resolution height if available
+        # Prefer non-HLS/DASH protocols for browser-friendly direct downloads
+        protocol_penalty = 0
+        if fmt.protocol:
+            if "m3u8" in fmt.protocol or "dash" in fmt.protocol:
+                protocol_penalty = 2
+            elif fmt.protocol.startswith("http"):
+                protocol_penalty = 0
+            else:
+                protocol_penalty = 1
+        ext_penalty = 0 if (fmt.ext or "").lower() == "mp4" else 1
         height_val = 0
         if fmt.resolution:
             if "x" in fmt.resolution:
@@ -176,7 +251,7 @@ async def extract_media(req: ExtractRequest):
                 except Exception:
                     height_val = 0
         bitrate_val = fmt.audio_bitrate or 0
-        return (muxed_priority, -height_val, -bitrate_val)
+        return (protocol_penalty, ext_penalty, muxed_priority, -height_val, -bitrate_val)
 
     formats.sort(key=sort_key)
 
@@ -192,30 +267,13 @@ async def extract_media(req: ExtractRequest):
 
 
 @app.get("/api/download")
-async def proxy_download(source: str, format_id: str):
+async def proxy_download(request: Request, source: str, format_id: str):
     if not source or not format_id:
         raise HTTPException(status_code=400, detail="Missing source or format_id")
 
     # Re-extract to get fresh format URL and headers
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "restrictfilenames": True,
-        "noplaylist": True,
-        "skip_download": True,
-        "cachedir": False,
-        "nocheckcertificate": True,
-        "format": f"{format_id}",
-        "http_headers": {
-            "User-Agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-            )
-        },
-    }
-
     try:
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        with youtube_dl.YoutubeDL(build_ydl_opts(source, format_selector=f"{format_id}")) as ydl:
             info = ydl.extract_info(source, download=False)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
@@ -233,33 +291,72 @@ async def proxy_download(source: str, format_id: str):
         raise HTTPException(status_code=404, detail="Format not found")
 
     direct_url = target.get("url")
-    headers = info.get("http_headers") or {}
-    # Some formats have per-format headers
+
+    # Merge headers: info-level + per-format + inferred referer
+    headers = (info.get("http_headers") or {}).copy()
     if target.get("http_headers"):
         headers.update(target.get("http_headers") or {})
+
+    # Ensure we always include a decent UA and a sensible Referer
+    headers.setdefault("User-Agent", _get_default_user_agent())
+    referer = _build_referer_for(source)
+    if referer:
+        headers.setdefault("Referer", referer)
+
+    # Forward client Range if present (enables resumable/partial content)
+    client_range = request.headers.get("Range")
+    if client_range:
+        headers["Range"] = client_range
 
     # Build filename
     title = info.get("title") or "download"
     ext = target.get("ext") or "bin"
     filename = f"{title}.{ext}"
 
-    async def iter_stream():
-        async with httpx.AsyncClient(follow_redirects=True, timeout=None) as client:
-            async with client.stream("GET", direct_url, headers=headers) as resp:
-                resp.raise_for_status()
+    # Open upstream connection first to obtain real status and headers (supports 206 for Range)
+    async with httpx.AsyncClient(follow_redirects=True, timeout=None) as client:
+        request_up = client.build_request("GET", direct_url, headers=headers)
+        resp = await client.send(request_up, stream=True)
+
+        upstream_status = resp.status_code
+        upstream_headers = resp.headers
+
+        passthrough_header_names = [
+            "Content-Type",
+            "Content-Length",
+            "Content-Range",
+            "Accept-Ranges",
+            "ETag",
+            "Last-Modified",
+            "Cache-Control",
+        ]
+        response_headers = {
+            # Always set Content-Disposition for nicer filename
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+            # Don't cache proxied downloads
+            "Cache-Control": "no-store",
+        }
+        for name in passthrough_header_names:
+            if name in upstream_headers and upstream_headers.get(name):
+                response_headers[name] = upstream_headers.get(name)
+
+        media_type = upstream_headers.get("Content-Type") or "application/octet-stream"
+
+        async def body_iter():
+            try:
                 async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
                     if chunk:
                         yield chunk
+            finally:
+                await resp.aclose()
+                await client.aclose()
 
-    # We do not know Content-Length reliably; stream chunked
-    return StreamingResponse(
-        iter_stream(),
-        media_type=target.get("http_headers", {}).get("Content-Type") or "application/octet-stream",
-        headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
-            "Cache-Control": "no-store",
-        },
-    )
+        return StreamingResponse(
+            body_iter(),
+            media_type=media_type,
+            headers=response_headers,
+            status_code=upstream_status,
+        )
 
 
 # Serve frontend (Vite build) if present
