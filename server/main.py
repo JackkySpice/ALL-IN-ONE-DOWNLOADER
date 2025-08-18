@@ -29,6 +29,28 @@ DIST_DIR = os.path.join(REPO_ROOT, "web", "dist")
 INDEX_FILE = os.path.join(DIST_DIR, "index.html")
 
 
+# Allow passing cookies via env as base64 (Netscape cookie file). This makes it
+# easy to configure on hosts like Render without mounting files.
+def _bootstrap_cookiefile_from_env() -> None:
+    cookiefile_from_env = os.getenv("AOI_COOKIES_BASE64")
+    # Only materialize if a direct cookie file was not explicitly provided
+    if cookiefile_from_env and not os.getenv("AOI_COOKIEFILE"):
+        try:
+            import base64
+
+            target_path = os.path.join(APP_DIR, ".cookies.txt")
+            raw = base64.b64decode(cookiefile_from_env.encode("utf-8"))
+            with open(target_path, "wb") as fh:
+                fh.write(raw)
+            os.environ["AOI_COOKIEFILE"] = target_path
+        except Exception:
+            # If decoding fails, continue without cookies
+            pass
+
+
+_bootstrap_cookiefile_from_env()
+
+
 class ExtractRequest(BaseModel):
     url: str
 
@@ -287,18 +309,16 @@ async def proxy_download(request: Request, source: str, format_id: str):
 
     # Re-extract to get fresh format URL and headers, and capture cookies
     cookie_header: Optional[str] = None
+    extracted_cookiejar = None
     try:
         with youtube_dl.YoutubeDL(build_ydl_opts(source, format_selector=f"{format_id}")) as ydl:
             info = ydl.extract_info(source, download=False)
             # Prepare cookie header for the eventual direct URL domain
             try:
-                # We'll compute exact host later; temporarily keep full cookie jar
-                ydl_cookiejar = getattr(ydl, "cookiejar", None)
-                if ydl_cookiejar is not None:
-                    # defer building cookie header until we know direct_url
-                    pass
+                # Keep cookie jar for later header construction once we know the host
+                extracted_cookiejar = getattr(ydl, "cookiejar", None)
             except Exception:
-                pass
+                extracted_cookiejar = None
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
 
@@ -339,12 +359,9 @@ async def proxy_download(request: Request, source: str, format_id: str):
             if cookie_from_info:
                 headers.setdefault("Cookie", cookie_from_info)
             else:
-                # No Cookie header provided by extractor; try reconstructing from cookiejar on a best-effort basis
-                try:
-                    with youtube_dl.YoutubeDL(build_ydl_opts(source)) as y2:
-                        cj = getattr(y2, "cookiejar", None)
-                except Exception:
-                    cj = None
+                # No Cookie header provided by extractor; try reconstructing from
+                # the cookie jar collected during the extraction step.
+                cj = extracted_cookiejar
                 if cj:
                     cookie_pairs = []
                     for c in cj:

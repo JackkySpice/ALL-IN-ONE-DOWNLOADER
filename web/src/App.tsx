@@ -184,7 +184,7 @@ export default function App() {
               </div>
 
               <div className="relative px-4 pb-4 text-left text-xs text-slate-400">
-                <div className="inline-flex items-center gap-2"><Info className="h-3.5 w-3.5"/> Tip: For private/age-gated videos, add cookies on the server via <code className="px-1 rounded bg-white/10">AOI_COOKIEFILE</code>.</div>
+                <div className="inline-flex items-center gap-2"><Info className="h-3.5 w-3.5"/> Tip: For private/age-gated videos, add cookies on the server via <code className="px-1 rounded bg-white/10">AOI_COOKIEFILE</code> or base64 with <code className="px-1 rounded bg-white/10">AOI_COOKIES_BASE64</code>.</div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button type="button" onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample TikTok</button>
                   <button type="button" onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample YouTube</button>
