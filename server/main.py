@@ -133,7 +133,9 @@ def build_ydl_opts(source_url: Optional[str] = None, format_selector: Optional[s
     referer = _build_referer_for(source_url) if source_url else None
 
     # Allow env-driven YouTube client fallback list (comma-separated)
-    yt_clients_env = os.getenv("AOI_YT_CLIENTS", "android,ios,webmobile,web").split(",")
+    # Prefer clients that are currently least affected by anti-bot checks
+    # Common valid values include: android, ios, tv_embedded, mweb, web, web_safari
+    yt_clients_env = os.getenv("AOI_YT_CLIENTS", "android,ios,tv_embedded,mweb,web").split(",")
     yt_clients = [c.strip() for c in yt_clients_env if c.strip()]
 
     ydl_opts: dict = {
