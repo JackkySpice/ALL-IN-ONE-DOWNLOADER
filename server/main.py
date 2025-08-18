@@ -398,6 +398,8 @@ async def proxy_download(request: Request, source: str, format_id: str):
         "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
         # Don't cache proxied downloads
         "Cache-Control": "no-store",
+        # Encourage proxies not to buffer large downloads
+        "X-Accel-Buffering": "no",
     }
     for name in passthrough_header_names:
         if name in upstream_headers and upstream_headers.get(name):
