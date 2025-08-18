@@ -7,6 +7,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 import httpx
+import anyio
+import threading
+import queue as thread_queue
 from urllib.parse import quote, urlparse
 
 try:
@@ -77,7 +80,7 @@ app = FastAPI(title="All-in-One Downloader API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -118,7 +121,8 @@ def build_ydl_opts(source_url: Optional[str] = None, format_selector: Optional[s
         "noplaylist": True,
         "skip_download": True,
         "cachedir": False,
-        "nocheckcertificate": True,
+        # Keep certificate verification; only disable if you must (e.g., behind broken corporate proxies)
+        # "nocheckcertificate": True,
         # Prefer IPv4 to avoid some CDN / IPv6 edge cases
         "prefer_ipv4": True,
         "retries": 5,
@@ -367,7 +371,12 @@ async def proxy_download(request: Request, source: str, format_id: str):
 
     # Open upstream connection first to obtain real status and headers (supports 206 for Range)
     # Enable HTTP/2 if available for better CDN compatibility (requires httpx[http2])
-    client = httpx.AsyncClient(follow_redirects=True, timeout=None, http2=True)
+    client = httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=None,
+        http2=True,
+        limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+    )
     request_up = client.build_request("GET", direct_url, headers=headers)
     resp = await client.send(request_up, stream=True)
 
@@ -379,6 +388,7 @@ async def proxy_download(request: Request, source: str, format_id: str):
         "Content-Length",
         "Content-Range",
         "Accept-Ranges",
+        "Content-Encoding",
         "ETag",
         "Last-Modified",
         "Cache-Control",
@@ -388,6 +398,8 @@ async def proxy_download(request: Request, source: str, format_id: str):
         "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
         # Don't cache proxied downloads
         "Cache-Control": "no-store",
+        # Encourage proxies not to buffer large downloads
+        "X-Accel-Buffering": "no",
     }
     for name in passthrough_header_names:
         if name in upstream_headers and upstream_headers.get(name):
@@ -412,7 +424,6 @@ async def proxy_download(request: Request, source: str, format_id: str):
                 stream=True,
                 allow_redirects=True,
                 impersonate=impersonate,
-                timeout=None,
             )
 
             # Merge headers again from curl response
@@ -422,9 +433,26 @@ async def proxy_download(request: Request, source: str, format_id: str):
                 if name in ch and ch.get(name):
                     response_headers[name] = ch.get(name)
 
+            # Stream response from a background thread to avoid blocking the event loop
             async def curl_body_iter():
+                q: thread_queue.Queue[Optional[bytes]] = thread_queue.Queue(maxsize=10)
+
+                def producer():
+                    try:
+                        for chunk in curl_resp.iter_content(chunk_size=64 * 1024):
+                            if chunk:
+                                q.put(chunk)
+                    finally:
+                        q.put(None)
+
+                t = threading.Thread(target=producer, daemon=True)
+                t.start()
+
                 try:
-                    for chunk in curl_resp.iter_content(chunk_size=64 * 1024):
+                    while True:
+                        chunk = await anyio.to_thread.run_sync(q.get)
+                        if chunk is None:
+                            break
                         if chunk:
                             yield chunk
                 finally:

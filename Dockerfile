@@ -21,7 +21,8 @@ RUN cd web \
     && npm run build
 
 ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Start uvicorn server
-CMD ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["bash","-lc","uvicorn server.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info --access-log"]
