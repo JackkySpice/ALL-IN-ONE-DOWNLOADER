@@ -1,7 +1,8 @@
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
-# Install latest yt-dlp available at build time to avoid resolution failures
-yt-dlp
+# Always use latest yt-dlp from GitHub to keep up with site changes (e.g., Facebook/YouTube)
+# Using the tarball avoids needing git in the image
+yt-dlp @ https://github.com/yt-dlp/yt-dlp/archive/refs/heads/master.tar.gz
 aiofiles==23.2.1
 # Enable HTTP/2
 httpx[http2]==0.28.1

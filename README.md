@@ -15,6 +15,19 @@ Click to deploy on Render (free tier):
 
 Render will detect the Dockerfile and set everything up automatically. After deploy, open the service URL to use the app.
 
+### Passing cookies for private/age‑gated videos (YouTube/Facebook)
+
+Some videos need authentication. You can provide cookies to the server in either way:
+
+- Set env var `AOI_COOKIEFILE` to the path of a Netscape cookie file inside the container, OR
+- Set env var `AOI_COOKIES_BASE64` to a base64‑encoded Netscape cookie file. On startup the server writes it to an internal file and uses it for yt‑dlp.
+
+How to export cookies:
+- Use the browser extension “Get cookies.txt” to export as Netscape format, then base64‑encode it and set `AOI_COOKIES_BASE64` in your hosting provider.
+- Or run locally: `yt-dlp --cookies-from-browser chrome --dump-user-agent` to verify extraction works, then export cookies with the extension above.
+
+Optional: you can fine‑tune YouTube client selection via `AOI_YT_CLIENTS` (comma‑separated, e.g. `android,ios,tv_embedded,mweb,web`).
+
 ## Run locally (Docker)
 
 ```bash
