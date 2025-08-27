@@ -323,6 +323,14 @@ async def proxy_download(request: Request, source: str, format_id: str):
     if not source or not format_id:
         raise HTTPException(status_code=400, detail="Missing source or format_id")
 
+    # Validate source is http(s) URL
+    try:
+        parsed_source = urlparse(source)
+        if parsed_source.scheme not in {"http", "https"} or not parsed_source.netloc:
+            raise ValueError("invalid")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid source URL; must be http(s)")
+
     # Re-extract to get fresh format URL and headers, and capture cookies
     cookie_header: Optional[str] = None
     extracted_cookiejar = None
@@ -409,12 +417,17 @@ async def proxy_download(request: Request, source: str, format_id: str):
     # Enable HTTP/2 if available for better CDN compatibility (requires httpx[http2])
     client = httpx.AsyncClient(
         follow_redirects=True,
-        timeout=None,
+        timeout=httpx.Timeout(connect=15.0, read=None, write=30.0, pool=None),
         http2=True,
         limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
     )
-    request_up = client.build_request("GET", direct_url, headers=headers)
-    resp = await client.send(request_up, stream=True)
+    try:
+        request_up = client.build_request("GET", direct_url, headers=headers)
+        resp = await client.send(request_up, stream=True)
+    except Exception as e:
+        await client.aclose()
+        # Upstream network error
+        raise HTTPException(status_code=502, detail=f"Upstream error: {e}")
 
     upstream_status = resp.status_code
     upstream_headers = resp.headers
@@ -436,6 +449,8 @@ async def proxy_download(request: Request, source: str, format_id: str):
         "Cache-Control": "no-store",
         # Encourage proxies not to buffer large downloads
         "X-Accel-Buffering": "no",
+        # Avoid content-type sniffing on downloads
+        "X-Content-Type-Options": "nosniff",
     }
     for name in passthrough_header_names:
         if name in upstream_headers and upstream_headers.get(name):
