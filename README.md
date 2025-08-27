@@ -40,6 +40,25 @@ cd web && npm ci && npm run build && cd ..
 uvicorn server.main:app --host 0.0.0.0 --port 8000
 ```
 
+## Cookies (for private or age-gated content)
+
+You can provide cookies to `yt-dlp` so it can access private or age-gated videos.
+
+- `AOI_COOKIEFILE`: Path to a Netscape-format cookie file mounted in the container or present on disk.
+- `AOI_COOKIES_BASE64`: Base64-encoded Netscape cookie file. If set (and `AOI_COOKIEFILE` is not set), the server will write it to `server/.cookies.txt` at startup and use it automatically.
+
+Example (Docker):
+
+```bash
+docker run -p 8000:8000 \
+  -e AOI_COOKIES_BASE64="$(base64 -w0 cookies.txt)" \
+  all-in-one-downloader
+```
+
+Notes:
+- Use cookies only from accounts you own. Keep them secret; anyone with the cookie can act as your account.
+- Rotate/regenerate cookies periodically; services expire them.
+
 ## Legal
 
 This project uses `yt-dlp` under the hood. Always respect each service’s Terms of Service and copyright. Only download content you own or have permission to use.

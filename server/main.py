@@ -181,6 +181,15 @@ def build_ydl_opts(source_url: Optional[str] = None, format_selector: Optional[s
     return ydl_opts
 
 
+async def _extract_info_threaded(url: str, ydl_opts: dict) -> dict:
+    """Run ydl.extract_info in a worker thread to avoid blocking the event loop."""
+    def _sync_extract() -> dict:
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            return ydl.extract_info(url, download=False)
+
+    return await anyio.to_thread.run_sync(_sync_extract)
+
+
 @app.get("/api/health")
 async def health() -> dict:
     return {"status": "ok"}
@@ -193,8 +202,7 @@ async def extract_media(req: ExtractRequest):
 
     # First attempt with default options
     try:
-        with youtube_dl.YoutubeDL(build_ydl_opts(req.url)) as ydl:
-            info = ydl.extract_info(req.url, download=False)
+        info = await _extract_info_threaded(req.url, build_ydl_opts(req.url))
     except Exception as first_err:
         # Best-effort fallback: switch UA to mobile and adjust YouTube client ordering
         try:
@@ -203,10 +211,9 @@ async def extract_media(req: ExtractRequest):
                 "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
             )
             os.environ.setdefault("AOI_USER_AGENT", mobile_ua)
-            with youtube_dl.YoutubeDL(
-                build_ydl_opts(req.url, format_selector="best/bv*+ba/b")
-            ) as ydl:
-                info = ydl.extract_info(req.url, download=False)
+            info = await _extract_info_threaded(
+                req.url, build_ydl_opts(req.url, format_selector="best/bv*+ba/b")
+            )
         except Exception as second_err:
             raise HTTPException(status_code=400, detail=f"Extraction failed: {second_err}") from second_err
 
@@ -311,14 +318,17 @@ async def proxy_download(request: Request, source: str, format_id: str):
     cookie_header: Optional[str] = None
     extracted_cookiejar = None
     try:
-        with youtube_dl.YoutubeDL(build_ydl_opts(source, format_selector=f"{format_id}")) as ydl:
-            info = ydl.extract_info(source, download=False)
-            # Prepare cookie header for the eventual direct URL domain
-            try:
-                # Keep cookie jar for later header construction once we know the host
-                extracted_cookiejar = getattr(ydl, "cookiejar", None)
-            except Exception:
-                extracted_cookiejar = None
+        def _sync_extract_with_cookiejar():
+            with youtube_dl.YoutubeDL(build_ydl_opts(source, format_selector=f"{format_id}")) as ydl:
+                _info = ydl.extract_info(source, download=False)
+                _cj = None
+                try:
+                    _cj = getattr(ydl, "cookiejar", None)
+                except Exception:
+                    _cj = None
+                return _info, _cj
+
+        info, extracted_cookiejar = await anyio.to_thread.run_sync(_sync_extract_with_cookiejar)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
 

@@ -8,3 +8,4 @@ httpx[http2]==0.28.1
 # Brotli decoding (some CDNs compress segments aggressively)
 brotli==1.1.0
 curl_cffi==0.7.1
+pytest==8.3.2
