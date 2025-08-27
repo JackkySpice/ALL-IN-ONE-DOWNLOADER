@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react'
 import { Download, Music2, PlayCircle, Youtube, Instagram, Facebook, Music, BadgeCheck, Link as LinkIcon, Loader2, Crown, ShieldCheck, Video, Waves, Sparkles, RefreshCw, Info, CheckCircle2 } from 'lucide-react'
 import clsx from 'clsx'
+import { motion } from 'framer-motion'
+import * as Popover from '@radix-ui/react-popover'
+import * as Tabs from '@radix-ui/react-tabs'
 
 const PLATFORMS = [
   { key: 'youtube', label: 'YouTube', color: 'text-red-500', icon: Youtube },
@@ -165,68 +168,103 @@ export default function App() {
 
       <main className="relative z-10 max-w-6xl mx-auto px-4 py-10">
         <section className="text-center">
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white">
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white"
+          >
             Download from <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-400">YouTube</span>, Facebook, TikTok, Instagram & SoundCloud
-          </h1>
-          <p className="mt-3 text-slate-400 max-w-2xl mx-auto">
+          </motion.h1>
+          <p className="mt-3 text-slate-300 max-w-xl mx-auto">
             Paste a link, pick your quality, and download. No sign-up, no watermark. Works on mobile and desktop.
           </p>
 
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            {PLATFORMS.map((p) => {
-              const Icon = p.icon
-              return (
-                <button
-                  key={p.key}
-                  onClick={() => setActive(p.key)}
-                  className={clsx(
-                    'group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all',
-                    active === p.key
-                      ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-white shadow-[0_0_0_3px] shadow-fuchsia-500/10'
-                      : 'border-white/10 text-slate-300 hover:border-white/20 hover:bg-white/5'
-                  )}
-                >
-                  <Icon className={clsx('h-4 w-4', p.color)} />
-                  <span className="font-medium">{p.label}</span>
-                  {active === p.key && <BadgeCheck className="h-4 w-4 text-emerald-400" />}
-                </button>
-              )
-            })}
+          <div className="mt-6">
+            <div className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded-full p-1 gap-1">
+              {PLATFORMS.map((p) => {
+                const Icon = p.icon
+                const isActive = active === p.key
+                return (
+                  <button
+                    key={p.key}
+                    onClick={() => setActive(p.key)}
+                    className={clsx(
+                      'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50',
+                      isActive ? 'bg-white/10 text-white shadow-[0_0_0_3px] shadow-fuchsia-500/10' : 'text-slate-300 hover:bg-white/5'
+                    )}
+                  >
+                    <Icon className={clsx('h-4 w-4', p.color)} />
+                    <span className="font-medium">{p.label}</span>
+                    {isActive && <BadgeCheck className="h-4 w-4 text-emerald-400" />}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           <form onSubmit={onSubmit} className="mt-8 max-w-3xl mx-auto">
             <div className="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-lg">
               <div className="absolute inset-0 pointer-events-none [mask-image:radial-gradient(50%_50%_at_50%_0%,rgba(255,255,255,.4),transparent_70%)] bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,.08),transparent_40%)]" />
-              <div className="relative p-3 md:p-4 flex flex-col md:flex-row gap-3 items-stretch">
-                <div className="flex-1 flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 focus-within:border-fuchsia-500/50">
-                  <LinkIcon className="h-4 w-4 text-slate-400" />
-                  <input
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    type="url"
-                    aria-label="Source URL"
-                    placeholder={`Paste ${PLATFORMS.find(p=>p.key===active)?.label} URL (https://...)`}
-                    className="w-full bg-transparent outline-none placeholder:text-slate-500 text-slate-100"
-                  />
+              <div className="relative p-3 md:p-4">
+                <div className="text-left text-xs text-slate-400 px-1 pb-2">Source URL</div>
+                <div className="flex flex-col md:flex-row gap-3 items-stretch">
+                  <div className="flex-1 flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 focus-within:border-fuchsia-500/50">
+                    <LinkIcon className="h-4 w-4 text-slate-400" />
+                    <input
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      type="url"
+                      aria-label="Source URL"
+                      placeholder={`Paste ${PLATFORMS.find(p=>p.key===active)?.label} URL (https://...)`}
+                      className="w-full bg-transparent outline-none placeholder:text-slate-500 text-slate-100"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText()
+                        if (text) setUrl(text)
+                      } catch (e) {
+                        setError('Clipboard permission denied')
+                      }
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50"
+                  >
+                    Paste
+                  </button>
+                  <button
+                    type="submit"
+                    className={clsx(
+                      'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50',
+                      'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 bg-[length:200%_200%] text-white shadow-lg hover:shadow-xl hover:shadow-fuchsia-500/30 hover:animate-gradient-x active:scale-95'
+                    )}
+                    disabled={loading}
+                  >
+                    {loading ? (<><Loader2 className="h-4 w-4 animate-spin"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4"/> Analyze</>)}
+                  </button>
                 </div>
-                <button
-                  type="submit"
-                  className={clsx(
-                    'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition-all',
-                    'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 text-white shadow-lg hover:shadow-xl hover:shadow-fuchsia-500/30'
-                  )}
-                  disabled={loading}
-                >
-                  {loading ? (<><Loader2 className="h-4 w-4 animate-spin"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4"/> Analyze</>)}
-                </button>
               </div>
 
               <div className="relative px-4 pb-4 text-left text-xs text-slate-400">
-                <div className="inline-flex items-center gap-2"><Info className="h-3.5 w-3.5"/> Tip: For private/age-gated videos, add cookies on the server via <code className="px-1 rounded bg-white/10">AOI_COOKIEFILE</code> or base64 with <code className="px-1 rounded bg-white/10">AOI_COOKIES_BASE64</code>.</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample TikTok</button>
-                  <button type="button" onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample YouTube</button>
-                  <button type="button" onClick={() => setUrl('https://www.facebook.com/watch/?v=10153231379946729')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample Facebook</button>
+                <div className="flex items-center justify-between">
+                  <Popover.Root>
+                    <Popover.Trigger asChild>
+                      <button type="button" className="inline-flex items-center gap-2 text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-2 py-1">
+                        <Info className="h-3.5 w-3.5"/> Advanced
+                      </button>
+                    </Popover.Trigger>
+                    <Popover.Content sideOffset={8} className="rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur p-3 text-left text-xs text-slate-300 shadow-xl max-w-sm">
+                      <div>For private/age-gated videos, add cookies on the server via <code className="px-1 rounded bg-white/10">AOI_COOKIEFILE</code> or base64 with <code className="px-1 rounded bg-white/10">AOI_COOKIES_BASE64</code>.</div>
+                    </Popover.Content>
+                  </Popover.Root>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')} className="text-slate-300 hover:text-white underline/30 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-1">Sample TikTok</button>
+                    <button type="button" onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')} className="text-slate-300 hover:text-white underline/30 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-1">Sample YouTube</button>
+                    <button type="button" onClick={() => setUrl('https://www.facebook.com/watch/?v=10153231379946729')} className="text-slate-300 hover:text-white underline/30 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-1">Sample Facebook</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -241,7 +279,7 @@ export default function App() {
 
         {data && (
           <section className="mt-10 grid gap-6 md:grid-cols-[2fr_3fr]">
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-white/10">
                 <div className="text-sm uppercase tracking-wider text-slate-400 mb-2 inline-flex items-center gap-2"><Video className="h-4 w-4"/> Details</div>
                 <h2 className="text-xl font-semibold text-white">{data.title || 'Untitled'}</h2>
@@ -253,58 +291,70 @@ export default function App() {
               <div className="p-4 text-left text-slate-400 text-sm">
                 <div className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-emerald-400"/> Extractor: {data.extractor}</div>
               </div>
-            </div>
+            </motion.div>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-white/10 flex items-center justify-between">
                 <div className="text-sm uppercase tracking-wider text-slate-400 inline-flex items-center gap-2"><Download className="h-4 w-4"/> Download Options</div>
-                <button onClick={() => { setUrl(data.webpage_url || ''); setData(null); setError(null); }} className="text-slate-300 hover:text-white inline-flex items-center gap-2 text-sm">
+                <button onClick={() => { setUrl(data.webpage_url || ''); setData(null); setError(null); }} className="text-slate-300 hover:text-white inline-flex items-center gap-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-2 py-1">
                   <RefreshCw className="h-4 w-4"/> New link
                 </button>
               </div>
 
-              <div className="p-4 grid gap-6">
-                {recommended.length > 0 && (
-                  <div>
-                    <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><Crown className="h-4 w-4 text-amber-400"/> Recommended</div>
-                    <div className="grid gap-2">
-                      {recommended.slice(0, 4).map((f) => (
-                        <FormatRow key={`rec-${f.format_id}`} format={f} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {recommended.length === 0 && (
-                  <div className="text-xs text-slate-400">No recommended MP4 found. See all available formats below.</div>
-                )}
+              <div className="p-4">
+                <Tabs.Root defaultValue={recommended.length > 0 ? 'rec' : 'video'}>
+                  <Tabs.List className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
+                    <Tabs.Trigger value="rec" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 disabled:opacity-50">
+                      Recommended
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="video" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50">
+                      Video
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="audio" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50">
+                      Audio
+                    </Tabs.Trigger>
+                  </Tabs.List>
 
-                <div>
-                  <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><PlayCircle className="h-4 w-4 text-cyan-400"/> Video</div>
-                  <div className="grid gap-2 max-h-[300px] overflow-auto pr-1">
-                    {videos.length === 0 ? (
-                      <div className="text-slate-400 text-sm">No video formats found</div>
-                    ) : (
-                      videos.map((f) => (
-                        <FormatRow key={`v-${f.format_id}`} format={f} />
-                      ))
-                    )}
-                  </div>
-                </div>
+                  <div className="mt-4 grid gap-6">
+                    <Tabs.Content value="rec">
+                      {recommended.length > 0 ? (
+                        <div className="grid gap-2">
+                          {recommended.slice(0, 4).map((f) => (
+                            <FormatRow key={`rec-${f.format_id}`} format={f} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-400">No recommended MP4 found. See other tabs.</div>
+                      )}
+                    </Tabs.Content>
 
-                <div>
-                  <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><Music2 className="h-4 w-4 text-emerald-400"/> Audio</div>
-                  <div className="grid gap-2 max-h-[260px] overflow-auto pr-1">
-                    {audios.length === 0 ? (
-                      <div className="text-slate-400 text-sm">No audio formats found</div>
-                    ) : (
-                      audios.map((f) => (
-                        <FormatRow key={`a-${f.format_id}`} format={f} />
-                      ))
-                    )}
+                    <Tabs.Content value="video">
+                      <div className="grid gap-2 max-h-[300px] overflow-auto pr-1">
+                        {videos.length === 0 ? (
+                          <div className="text-slate-400 text-sm">No video formats found</div>
+                        ) : (
+                          videos.map((f) => (
+                            <FormatRow key={`v-${f.format_id}`} format={f} />
+                          ))
+                        )}
+                      </div>
+                    </Tabs.Content>
+
+                    <Tabs.Content value="audio">
+                      <div className="grid gap-2 max-h-[260px] overflow-auto pr-1">
+                        {audios.length === 0 ? (
+                          <div className="text-slate-400 text-sm">No audio formats found</div>
+                        ) : (
+                          audios.map((f) => (
+                            <FormatRow key={`a-${f.format_id}`} format={f} />
+                          ))
+                        )}
+                      </div>
+                    </Tabs.Content>
                   </div>
-                </div>
+                </Tabs.Root>
               </div>
-            </div>
+            </motion.div>
           </section>
         )}
 
@@ -380,5 +430,11 @@ function FormatRow({ format }: { format: Format }) {
         )}
       </div>
     </div>
+  )
+}
+
+function Skeleton({ className }: { className?: string }) {
+  return (
+    <div className={clsx('animate-pulse rounded-md bg-white/10', className)} />
   )
 }
