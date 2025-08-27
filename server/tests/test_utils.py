@@ -2,7 +2,7 @@ import math
 import pytest
 
 import os
-from server.main import human_readable_bytes, build_ydl_opts
+from server.main import human_readable_bytes, build_ydl_opts, FormatModel
 
 
 @pytest.mark.parametrize(
@@ -33,3 +33,9 @@ def test_build_ydl_opts_user_agent_override_does_not_mutate_env():
     # But environment should still not contain AOI_USER_AGENT unless explicitly set
     assert os.getenv("AOI_USER_AGENT") is None
 
+
+def test_formatmodel_allows_fractional_fps():
+    # fps can be non-integer like 29.97; ensure model accepts and preserves it
+    fmt = FormatModel(format_id="test", fps=29.97)
+    assert isinstance(fmt.fps, float)
+    assert fmt.fps == 29.97

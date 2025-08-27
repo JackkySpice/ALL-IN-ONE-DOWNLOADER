@@ -59,7 +59,7 @@ class FormatModel(BaseModel):
     format_id: str
     ext: Optional[str] = None
     resolution: Optional[str] = None
-    fps: Optional[int] = None
+    fps: Optional[float] = None
     acodec: Optional[str] = None
     vcodec: Optional[str] = None
     filesize: Optional[int] = None
