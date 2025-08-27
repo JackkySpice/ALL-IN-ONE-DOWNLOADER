@@ -22,6 +22,7 @@ type Format = {
   audio_bitrate?: number
   direct_url?: string
   is_audio_only: boolean
+  protocol?: string
 }
 
 type ExtractResponse = {
@@ -41,8 +42,17 @@ async function extract(url: string): Promise<ExtractResponse> {
     body: JSON.stringify({ url })
   })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || 'Extraction failed')
+    let message = 'Extraction failed'
+    try {
+      const data = await res.json()
+      message = (data?.detail || data?.message || message)
+    } catch {
+      try {
+        const text = await res.text()
+        message = text || message
+      } catch {}
+    }
+    throw new Error(message)
   }
   return res.json()
 }
@@ -58,12 +68,29 @@ function formatDuration(seconds?: number) {
     .join(':')
 }
 
+function normalizeInputUrl(raw: string): string | null {
+  const t = raw.trim()
+  if (!t) return null
+  try {
+    const u = new URL(t)
+    if (u.protocol === 'http:' || u.protocol === 'https:') return u.toString()
+    return null
+  } catch {
+    try {
+      const u2 = new URL(`https://${t}`)
+      if (u2.protocol === 'http:' || u2.protocol === 'https:') return u2.toString()
+    } catch {}
+  }
+  return null
+}
+
 export default function App() {
   const [active, setActive] = useState(PLATFORMS[0].key)
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<ExtractResponse | null>(null)
+  const [aborter, setAborter] = useState<AbortController | null>(null)
 
   const recommended = useMemo(() => {
     if (!data) return [] as Format[]
@@ -85,13 +112,22 @@ export default function App() {
     e.preventDefault()
     setError(null)
     setData(null)
+    if (loading) return
     if (!url.trim()) {
       setError('Please paste a valid URL')
       return
     }
     setLoading(true)
     try {
-      const src = url.trim()
+      const normalized = normalizeInputUrl(url)
+      if (!normalized) {
+        throw new Error('Please enter a valid http(s) URL')
+      }
+      const src = normalized
+      // Cancel any previous request
+      aborter?.abort()
+      const controller = new AbortController()
+      setAborter(controller)
       const res = await extract(src)
       ;(window as any).__aoi_last_source = src
       setData(res)
@@ -167,6 +203,8 @@ export default function App() {
                   <input
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
+                    type="url"
+                    aria-label="Source URL"
                     placeholder={`Paste ${PLATFORMS.find(p=>p.key===active)?.label} URL (https://...)`}
                     className="w-full bg-transparent outline-none placeholder:text-slate-500 text-slate-100"
                   />
@@ -236,22 +274,33 @@ export default function App() {
                     </div>
                   </div>
                 )}
+                {recommended.length === 0 && (
+                  <div className="text-xs text-slate-400">No recommended MP4 found. See all available formats below.</div>
+                )}
 
                 <div>
                   <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><PlayCircle className="h-4 w-4 text-cyan-400"/> Video</div>
                   <div className="grid gap-2 max-h-[300px] overflow-auto pr-1">
-                    {videos.map((f) => (
-                      <FormatRow key={`v-${f.format_id}`} format={f} />
-                    ))}
+                    {videos.length === 0 ? (
+                      <div className="text-slate-400 text-sm">No video formats found</div>
+                    ) : (
+                      videos.map((f) => (
+                        <FormatRow key={`v-${f.format_id}`} format={f} />
+                      ))
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><Music2 className="h-4 w-4 text-emerald-400"/> Audio</div>
                   <div className="grid gap-2 max-h-[260px] overflow-auto pr-1">
-                    {audios.map((f) => (
-                      <FormatRow key={`a-${f.format_id}`} format={f} />
-                    ))}
+                    {audios.length === 0 ? (
+                      <div className="text-slate-400 text-sm">No audio formats found</div>
+                    ) : (
+                      audios.map((f) => (
+                        <FormatRow key={`a-${f.format_id}`} format={f} />
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -282,6 +331,13 @@ function FormatRow({ format }: { format: Format }) {
   const quality = format.resolution ?? (format.audio_bitrate ? `${format.audio_bitrate}kbps` : '—')
   const isMuxed = format.vcodec && format.acodec && format.vcodec !== 'none' && format.acodec !== 'none'
   const isAudio = format.is_audio_only
+  const protocolLabel = React.useMemo(() => {
+    const p = (format.protocol || '').toLowerCase()
+    if (!p) return null
+    if (p.includes('m3u8')) return 'HLS'
+    if (p.includes('dash')) return 'DASH'
+    return null
+  }, [format.protocol])
 
   // Build proxy link to preserve headers compatibility
   const proxyHref = useMemo(() => {
@@ -308,11 +364,15 @@ function FormatRow({ format }: { format: Format }) {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {protocolLabel && (
+          <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 text-slate-400">{protocolLabel}</span>
+        )}
         {proxyHref && (
           <a
             href={proxyHref}
             target="_blank"
             rel="noopener noreferrer"
+            download
             className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white"
           >
             <Download className="h-4 w-4"/> Download
