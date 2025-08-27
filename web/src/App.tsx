@@ -22,6 +22,7 @@ type Format = {
   audio_bitrate?: number
   direct_url?: string
   is_audio_only: boolean
+  protocol?: string
 }
 
 type ExtractResponse = {
@@ -41,8 +42,17 @@ async function extract(url: string): Promise<ExtractResponse> {
     body: JSON.stringify({ url })
   })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || 'Extraction failed')
+    let message = 'Extraction failed'
+    try {
+      const data = await res.json()
+      message = (data?.detail || data?.message || message)
+    } catch {
+      try {
+        const text = await res.text()
+        message = text || message
+      } catch {}
+    }
+    throw new Error(message)
   }
   return res.json()
 }

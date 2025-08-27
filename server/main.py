@@ -281,10 +281,11 @@ async def extract_media(req: ExtractRequest):
         muxed_priority = 0 if (fmt.vcodec and fmt.acodec and fmt.vcodec != "none" and fmt.acodec != "none") else 1
         # Prefer non-HLS/DASH protocols for browser-friendly direct downloads
         protocol_penalty = 0
-        if fmt.protocol:
-            if "m3u8" in fmt.protocol or "dash" in fmt.protocol:
+        proto = (fmt.protocol or "").lower()
+        if proto:
+            if "m3u8" in proto or "dash" in proto:
                 protocol_penalty = 2
-            elif fmt.protocol.startswith("http"):
+            elif proto.startswith("http"):
                 protocol_penalty = 0
             else:
                 protocol_penalty = 1
