@@ -127,9 +127,13 @@ def _build_referer_for(url: str) -> Optional[str]:
     return None
 
 
-def build_ydl_opts(source_url: Optional[str] = None, format_selector: Optional[str] = None) -> dict:
+def build_ydl_opts(
+    source_url: Optional[str] = None,
+    format_selector: Optional[str] = None,
+    user_agent_override: Optional[str] = None,
+) -> dict:
     """Construct yt-dlp options with env-driven overrides and robust defaults."""
-    user_agent = _get_default_user_agent()
+    user_agent = user_agent_override or _get_default_user_agent()
     referer = _build_referer_for(source_url) if source_url else None
 
     # Allow env-driven YouTube client fallback list (comma-separated)
@@ -210,9 +214,13 @@ async def extract_media(req: ExtractRequest):
                 "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 "
                 "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
             )
-            os.environ.setdefault("AOI_USER_AGENT", mobile_ua)
             info = await _extract_info_threaded(
-                req.url, build_ydl_opts(req.url, format_selector="best/bv*+ba/b")
+                req.url,
+                build_ydl_opts(
+                    req.url,
+                    format_selector="best/bv*+ba/b",
+                    user_agent_override=mobile_ua,
+                ),
             )
         except Exception as second_err:
             raise HTTPException(status_code=400, detail=f"Extraction failed: {second_err}") from second_err
