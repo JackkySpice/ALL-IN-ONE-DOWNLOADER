@@ -396,7 +396,11 @@ async def proxy_download(request: Request, source: str, format_id: str):
                         if not getattr(c, "domain", None):
                             continue
                         dom = c.domain.lstrip(".")
-                        if host.endswith(dom):
+                        # Fix: Proper domain matching to prevent subdomain attacks
+                        # The host must either match the domain exactly or be a subdomain of it
+                        # by ensuring there's a dot before the domain part
+                        # Also prevent matching single-label domains (TLDs) for security
+                        if dom and host and "." in dom and (host == dom or host.endswith("." + dom)):
                             cookie_pairs.append(f"{c.name}={c.value}")
                     if cookie_pairs:
                         headers.setdefault("Cookie", "; ".join(cookie_pairs))
