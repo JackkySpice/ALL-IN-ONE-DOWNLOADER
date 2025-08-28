@@ -2,7 +2,7 @@ import math
 import pytest
 
 import os
-from server.main import human_readable_bytes, build_ydl_opts, FormatModel
+from ..main import human_readable_bytes, build_ydl_opts, FormatModel
 
 
 @pytest.mark.parametrize(
@@ -18,6 +18,7 @@ from server.main import human_readable_bytes, build_ydl_opts, FormatModel
         (1024 * 1024, "1.00 MB"),
         (10 * 1024 * 1024, "10.00 MB"),
         (1024 * 1024 * 1024, "1.00 GB"),
+        (1024 * 1024 * 1024 * 1024, "1.00 TB"),
     ],
 )
 def test_human_readable_bytes(num, expected):
