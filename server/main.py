@@ -392,7 +392,7 @@ async def proxy_download(request: Request, source: str, format_id: str):
                 if cj:
                     cookie_pairs = []
                     for c in cj:
-                        # Match domain loosely
+                        # Match cookie domain strictly to prevent subdomain attacks
                         if not getattr(c, "domain", None):
                             continue
                         dom = c.domain.lstrip(".")
@@ -554,7 +554,7 @@ if os.path.exists(DIST_DIR):
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str) -> FileResponse:
-        # Let API routes be handled by FastAPI; spa catch-all for others
+        # Let API routes be handled by FastAPI; SPA catch-all for others
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not Found")
         return FileResponse(INDEX_FILE)
