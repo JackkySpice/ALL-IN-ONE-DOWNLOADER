@@ -179,6 +179,17 @@ def build_ydl_opts(
     }
 
     cookiefile = os.getenv("AOI_COOKIEFILE")
+    if not cookiefile:
+        # Auto-detect a local Netscape cookie file if present
+        candidate_paths = [
+            os.path.join(APP_DIR, ".cookies.txt"),
+            os.path.join(REPO_ROOT, "cookies.txt"),
+            os.path.join(REPO_ROOT, ".cookies.txt"),
+        ]
+        for path in candidate_paths:
+            if os.path.exists(path):
+                cookiefile = path
+                break
     if cookiefile and os.path.exists(cookiefile):
         ydl_opts["cookiefile"] = cookiefile
 
