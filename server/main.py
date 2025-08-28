@@ -343,7 +343,6 @@ async def proxy_download(request: Request, source: str, format_id: str):
         raise HTTPException(status_code=400, detail="Invalid source URL; must be http(s)")
 
     # Re-extract to get fresh format URL and headers, and capture cookies
-    cookie_header: Optional[str] = None
     extracted_cookiejar = None
     try:
         def _sync_extract_with_cookiejar():
@@ -374,7 +373,7 @@ async def proxy_download(request: Request, source: str, format_id: str):
 
     direct_url = target.get("url")
 
-    # Merge headers: info-level + per-format + inferred referer
+    # Merge headers: info-level + per-format + inferred referrer
     headers = (info.get("http_headers") or {}).copy()
     if target.get("http_headers"):
         headers.update(target.get("http_headers") or {})

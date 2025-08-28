@@ -26,7 +26,7 @@ docker run -p 8000:8000 all-in-one-downloader
 
 ## Run locally (without Docker)
 
-Requirements: Python 3.11+, Node 18+
+Requirements: Python 3.11+, Node 20+
 
 ```bash
 # Backend
