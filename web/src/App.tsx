@@ -141,8 +141,8 @@ export default function App() {
   return (
     <div className="min-h-screen relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900" />
-      <div className="absolute inset-0 bg-grid opacity-[0.35]" />
-      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-80 w-[40rem] rounded-full blur-3xl bg-gradient-to-r from-fuchsia-500/20 via-purple-500/20 to-cyan-400/20" />
+      <div className="absolute inset-0 bg-grid opacity-[0.18] md:opacity-[0.12]" />
+      <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-64 w-[34rem] rounded-full blur-2xl bg-gradient-to-r from-fuchsia-500/15 via-purple-500/15 to-cyan-400/15" />
 
       <header className="relative z-10 sticky top-0 backdrop-blur border-b border-white/10 bg-slate-950/70">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -180,10 +180,10 @@ export default function App() {
                   key={p.key}
                   onClick={() => setActive(p.key)}
                   className={clsx(
-                    'group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all',
+                    'group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/70',
                     active === p.key
                       ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-white shadow-[0_0_0_3px] shadow-fuchsia-500/10'
-                      : 'border-white/10 text-slate-300 hover:border-white/20 hover:bg-white/5'
+                      : 'border-white/10 text-slate-300 hover:border-white/20 hover:bg-white/5 hover:translate-y-[-1px] active:translate-y-0'
                   )}
                 >
                   <Icon className={clsx('h-4 w-4', p.color)} />
@@ -195,45 +195,48 @@ export default function App() {
           </div>
 
           <form onSubmit={onSubmit} className="mt-8 max-w-3xl mx-auto">
-            <div className="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-lg">
-              <div className="absolute inset-0 pointer-events-none [mask-image:radial-gradient(50%_50%_at_50%_0%,rgba(255,255,255,.4),transparent_70%)] bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,.08),transparent_40%)]" />
-              <div className="relative p-3 md:p-4 flex flex-col md:flex-row gap-3 items-stretch">
-                <div className="flex-1 flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 focus-within:border-fuchsia-500/50">
-                  <LinkIcon className="h-4 w-4 text-slate-400" />
-                  <input
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    type="url"
-                    aria-label="Source URL"
-                    placeholder={`Paste ${PLATFORMS.find(p=>p.key===active)?.label} URL (https://...)`}
-                    className="w-full bg-transparent outline-none placeholder:text-slate-500 text-slate-100"
-                  />
+            <div className="relative rounded-2xl">
+              <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-r from-fuchsia-500/30 via-purple-500/30 to-cyan-400/30" />
+              <div className="relative bg-slate-900/60 border border-white/5 rounded-[calc(1rem-1px)] overflow-hidden shadow-brand backdrop-blur">
+                <div className="absolute inset-0 pointer-events-none [mask-image:radial-gradient(50%_50%_at_50%_0%,rgba(255,255,255,.35),transparent_70%)] bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,.06),transparent_40%)]" />
+                <div className="relative p-3 md:p-4 flex flex-col md:flex-row gap-3 items-stretch">
+                  <div className="flex-1 flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 focus-within:border-fuchsia-500/50">
+                    <LinkIcon className="h-4 w-4 text-slate-400" />
+                    <input
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      type="url"
+                      aria-label="Source URL"
+                      placeholder={`Paste ${PLATFORMS.find(p=>p.key===active)?.label} URL (https://...)`}
+                      className="w-full bg-transparent outline-none placeholder:text-slate-500 text-slate-100"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className={clsx(
+                      'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-fuchsia-400/70',
+                      'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 text-white shadow-brand hover:brightness-110 active:scale-[0.98]'
+                    )}
+                    disabled={loading}
+                  >
+                    {loading ? (<><Loader2 className="h-4 w-4 animate-spin"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4"/> Analyze</>)}
+                  </button>
                 </div>
-                <button
-                  type="submit"
-                  className={clsx(
-                    'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition-all',
-                    'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 text-white shadow-lg hover:shadow-xl hover:shadow-fuchsia-500/30'
-                  )}
-                  disabled={loading}
-                >
-                  {loading ? (<><Loader2 className="h-4 w-4 animate-spin"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4"/> Analyze</>)}
-                </button>
-              </div>
 
-              <div className="relative px-4 pb-4 text-left text-xs text-slate-400">
-                <div className="inline-flex items-center gap-2"><Info className="h-3.5 w-3.5"/> Tip: For private/age-gated videos, add cookies on the server via <code className="px-1 rounded bg-white/10">AOI_COOKIEFILE</code> or base64 with <code className="px-1 rounded bg-white/10">AOI_COOKIES_BASE64</code>.</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample TikTok</button>
-                  <button type="button" onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample YouTube</button>
-                  <button type="button" onClick={() => setUrl('https://www.facebook.com/watch/?v=10153231379946729')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample Facebook</button>
+                <div className="relative px-4 pb-4 text-left text-xs text-slate-400">
+                  <div className="inline-flex items-center gap-2"><Info className="h-3.5 w-3.5"/> Tip: For private/age-gated videos, add cookies on the server via <code className="px-1 rounded bg-white/10">AOI_COOKIEFILE</code> or base64 with <code className="px-1 rounded bg-white/10">AOI_COOKIES_BASE64</code>.</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample TikTok</button>
+                    <button type="button" onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample YouTube</button>
+                    <button type="button" onClick={() => setUrl('https://www.facebook.com/watch/?v=10153231379946729')} className="text-slate-300 hover:text-white underline/30 hover:underline">Sample Facebook</button>
+                  </div>
                 </div>
               </div>
             </div>
           </form>
 
           {error && (
-            <div className="mt-4 max-w-3xl mx-auto rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-red-200">
+            <div role="alert" className="mt-4 max-w-3xl mx-auto rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-red-200">
               {error}
             </div>
           )}
@@ -241,66 +244,72 @@ export default function App() {
 
         {data && (
           <section className="mt-10 grid gap-6 md:grid-cols-[2fr_3fr]">
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-white/10">
-                <div className="text-sm uppercase tracking-wider text-slate-400 mb-2 inline-flex items-center gap-2"><Video className="h-4 w-4"/> Details</div>
-                <h2 className="text-xl font-semibold text-white">{data.title || 'Untitled'}</h2>
-                <div className="text-slate-400 text-sm mt-1">Duration: {formatDuration(data.duration)}</div>
-              </div>
-              {data.thumbnail && (
-                <img src={data.thumbnail} className="w-full max-h-[320px] object-cover" alt="thumbnail" />
-              )}
-              <div className="p-4 text-left text-slate-400 text-sm">
-                <div className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-emerald-400"/> Extractor: {data.extractor}</div>
+            <div className="relative rounded-2xl">
+              <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-r from-fuchsia-500/25 via-purple-500/25 to-cyan-400/25" />
+              <div className="relative bg-slate-900/60 border border-white/5 rounded-[calc(1rem-1px)] overflow-hidden">
+                <div className="p-4 border-b border-white/10">
+                  <div className="text-sm uppercase tracking-wider text-slate-400 mb-2 inline-flex items-center gap-2"><Video className="h-4 w-4"/> Details</div>
+                  <h2 className="text-xl font-semibold text-white">{data.title || 'Untitled'}</h2>
+                  <div className="text-slate-400 text-sm mt-1">Duration: {formatDuration(data.duration)}</div>
+                </div>
+                {data.thumbnail && (
+                  <img src={data.thumbnail} className="w-full max-h-[320px] object-cover" alt="thumbnail" />
+                )}
+                <div className="p-4 text-left text-slate-400 text-sm">
+                  <div className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-emerald-400"/> Extractor: {data.extractor}</div>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                <div className="text-sm uppercase tracking-wider text-slate-400 inline-flex items-center gap-2"><Download className="h-4 w-4"/> Download Options</div>
-                <button onClick={() => { setUrl(data.webpage_url || ''); setData(null); setError(null); }} className="text-slate-300 hover:text-white inline-flex items-center gap-2 text-sm">
-                  <RefreshCw className="h-4 w-4"/> New link
-                </button>
-              </div>
-
-              <div className="p-4 grid gap-6">
-                {recommended.length > 0 && (
-                  <div>
-                    <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><Crown className="h-4 w-4 text-amber-400"/> Recommended</div>
-                    <div className="grid gap-2">
-                      {recommended.slice(0, 4).map((f) => (
-                        <FormatRow key={`rec-${f.format_id}`} format={f} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {recommended.length === 0 && (
-                  <div className="text-xs text-slate-400">No recommended MP4 found. See all available formats below.</div>
-                )}
-
-                <div>
-                  <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><PlayCircle className="h-4 w-4 text-cyan-400"/> Video</div>
-                  <div className="grid gap-2 max-h-[300px] overflow-auto pr-1">
-                    {videos.length === 0 ? (
-                      <div className="text-slate-400 text-sm">No video formats found</div>
-                    ) : (
-                      videos.map((f) => (
-                        <FormatRow key={`v-${f.format_id}`} format={f} />
-                      ))
-                    )}
-                  </div>
+            <div className="relative rounded-2xl">
+              <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-r from-fuchsia-500/25 via-purple-500/25 to-cyan-400/25" />
+              <div className="relative bg-slate-900/60 border border-white/5 rounded-[calc(1rem-1px)] overflow-hidden">
+                <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                  <div className="text-sm uppercase tracking-wider text-slate-400 inline-flex items-center gap-2"><Download className="h-4 w-4"/> Download Options</div>
+                  <button onClick={() => { setUrl(data.webpage_url || ''); setData(null); setError(null); }} className="text-slate-300 hover:text-white inline-flex items-center gap-2 text-sm">
+                    <RefreshCw className="h-4 w-4"/> New link
+                  </button>
                 </div>
 
-                <div>
-                  <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><Music2 className="h-4 w-4 text-emerald-400"/> Audio</div>
-                  <div className="grid gap-2 max-h-[260px] overflow-auto pr-1">
-                    {audios.length === 0 ? (
-                      <div className="text-slate-400 text-sm">No audio formats found</div>
-                    ) : (
-                      audios.map((f) => (
-                        <FormatRow key={`a-${f.format_id}`} format={f} />
-                      ))
-                    )}
+                <div className="p-4 grid gap-6">
+                  {recommended.length > 0 && (
+                    <div>
+                      <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><Crown className="h-4 w-4 text-amber-400"/> Recommended</div>
+                      <div className="grid gap-2">
+                        {recommended.slice(0, 4).map((f) => (
+                          <FormatRow key={`rec-${f.format_id}`} format={f} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {recommended.length === 0 && (
+                    <div className="text-xs text-slate-400">No recommended MP4 found. See all available formats below.</div>
+                  )}
+
+                  <div>
+                    <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><PlayCircle className="h-4 w-4 text-cyan-400"/> Video</div>
+                    <div className="grid gap-2 max-h-[300px] overflow-auto pr-1">
+                      {videos.length === 0 ? (
+                        <div className="text-slate-400 text-sm">No video formats found</div>
+                      ) : (
+                        videos.map((f) => (
+                          <FormatRow key={`v-${f.format_id}`} format={f} />
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-slate-300 text-sm mb-2 inline-flex items-center gap-2"><Music2 className="h-4 w-4 text-emerald-400"/> Audio</div>
+                    <div className="grid gap-2 max-h-[260px] overflow-auto pr-1">
+                      {audios.length === 0 ? (
+                        <div className="text-slate-400 text-sm">No audio formats found</div>
+                      ) : (
+                        audios.map((f) => (
+                          <FormatRow key={`a-${f.format_id}`} format={f} />
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
