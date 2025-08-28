@@ -19,6 +19,8 @@ from ..main import human_readable_bytes, build_ydl_opts, FormatModel
         (10 * 1024 * 1024, "10.00 MB"),
         (1024 * 1024 * 1024, "1.00 GB"),
         (1024 * 1024 * 1024 * 1024, "1.00 TB"),
+        (10 * 1024 * 1024 * 1024 * 1024, "10.00 TB"),
+        (1024 * 1024 * 1024 * 1024 * 1024, "1024.00 TB"),
     ],
 )
 def test_human_readable_bytes(num, expected):
