@@ -7,7 +7,7 @@ Beautiful, fast, and free downloader for YouTube, Facebook, TikTok, Instagram, a
 - Works for: YouTube, Facebook, TikTok, Instagram, SoundCloud (and many more supported by `yt-dlp`)
 - Single-service deploy (frontend + backend) via Docker
 
-## One‑click deploy (free)
+## One-click deploy (free)
 
 Click to deploy on Render (free tier):
 

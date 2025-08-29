@@ -85,7 +85,7 @@ def human_readable_bytes(num_bytes: Optional[int]) -> Optional[str]:
     if not num_bytes or num_bytes <= 0:
         return None
     step = 1024.0
-    units = ["B", "KB", "MB", "GB", "TB"]
+    units = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
     size = float(num_bytes)
     unit_idx = 0
     while size >= step and unit_idx < len(units) - 1:
@@ -242,9 +242,12 @@ async def extract_media(req: ExtractRequest):
 
     formats: List[FormatModel] = []
     for f in info.get("formats", []) or []:
-        # Only include formats with a direct URL
+        # Only include formats with a direct URL and an identifier
         direct_url = f.get("url")
         if not direct_url:
+            continue
+        format_id = f.get("format_id")
+        if not format_id:
             continue
 
         height = f.get("height")
@@ -272,7 +275,7 @@ async def extract_media(req: ExtractRequest):
 
         formats.append(
             FormatModel(
-                format_id=str(f.get("format_id")),
+                format_id=str(format_id),
                 ext=f.get("ext"),
                 resolution=resolution,
                 fps=f.get("fps"),
@@ -402,16 +405,13 @@ async def proxy_download(request: Request, source: str, format_id: str):
                 if cj:
                     cookie_pairs = []
                     for c in cj:
-                        # Match cookie domain strictly to prevent subdomain attacks
+                        # Match cookie domain strictly: only send cookies to the exact domain
+                        # or its subdomains and avoid single-label domains (TLDs)
                         if not getattr(c, "domain", None):
                             continue
                         dom = c.domain.lstrip(".")
-                        # Fix: Proper domain matching to prevent subdomain attacks
-                        # The host must either match the domain exactly or be a subdomain of it
-                        # by ensuring there's a dot before the domain part
-                        # Also prevent matching single-label domains (TLDs) for security
                         if dom and host and "." in dom and (host == dom or host.endswith("." + dom)):
-                            cookie_pairs.append(f"{c.name}={c.value}")
+                            cookie_pairs.append(f"{c.name}={quote(c.value)}")
                     if cookie_pairs:
                         headers.setdefault("Cookie", "; ".join(cookie_pairs))
     except Exception:

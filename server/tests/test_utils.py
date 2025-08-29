@@ -1,7 +1,6 @@
-import math
+import os
 import pytest
 
-import os
 from ..main import human_readable_bytes, build_ydl_opts, FormatModel
 
 
@@ -20,15 +19,17 @@ from ..main import human_readable_bytes, build_ydl_opts, FormatModel
         (1024 * 1024 * 1024, "1.00 GB"),
         (1024 * 1024 * 1024 * 1024, "1.00 TB"),
         (10 * 1024 * 1024 * 1024 * 1024, "10.00 TB"),
-        (1024 * 1024 * 1024 * 1024 * 1024, "1024.00 TB"),
+        (1024 * 1024 * 1024 * 1024 * 1024, "1.00 PB"),
+        (10 * 1024 * 1024 * 1024 * 1024 * 1024, "10.00 PB"),
+        (1024 * 1024 * 1024 * 1024 * 1024 * 1024, "1.00 EB"),
     ],
 )
 def test_human_readable_bytes(num, expected):
     assert human_readable_bytes(num) == expected
 
 
-def test_build_ydl_opts_user_agent_override_does_not_mutate_env():
-    os.environ.pop("AOI_USER_AGENT", None)
+def test_build_ydl_opts_user_agent_override_does_not_mutate_env(monkeypatch):
+    monkeypatch.delenv("AOI_USER_AGENT", raising=False)
     override = "TestAgent/1.0"
     opts = build_ydl_opts(source_url="https://example.com/video", user_agent_override=override)
     # The constructed headers should include the override UA
