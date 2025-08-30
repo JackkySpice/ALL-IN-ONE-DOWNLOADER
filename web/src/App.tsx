@@ -97,8 +97,8 @@ export default function App() {
 
   const recommended = useMemo(() => {
     if (!data) return [] as Format[]
-    // Prefer muxed MP4 with highest resolution
-    return data.formats.filter(f => (f.vcodec && f.acodec && f.vcodec !== 'none' && f.acodec !== 'none') && f.ext === 'mp4')
+    // Prefer muxed formats with highest resolution; server sorts best first
+    return data.formats.filter(f => (f.vcodec && f.acodec && f.vcodec !== 'none' && f.acodec !== 'none'))
   }, [data])
 
   const videos = useMemo(() => {
