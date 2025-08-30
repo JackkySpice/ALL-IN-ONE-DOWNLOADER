@@ -218,7 +218,11 @@ export default function App() {
                       aria-label="Source URL"
                       placeholder={`Paste ${PLATFORMS.find(p=>p.key===active)?.label} URL (https://...)`}
                       className="w-full bg-transparent outline-none placeholder:text-slate-500 text-slate-100"
-                      autoFocus
+                      inputMode="url"
+                      enterKeyHint="go"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      spellCheck={false}
                     />
                   </div>
                   <button
