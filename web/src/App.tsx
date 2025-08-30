@@ -159,11 +159,11 @@ export default function App() {
               <div className="text-xs text-slate-400 -mt-0.5">Fast. Gorgeous. Private.</div>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-4 text-slate-300 text-sm">
-            <div className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400"/> Secure</div>
-            <div className="inline-flex items-center gap-2"><Waves className="h-4 w-4 text-cyan-400"/> No ads</div>
-            <div className="inline-flex items-center gap-2"><Crown className="h-4 w-4 text-amber-400"/> Free</div>
-          </div>
+          <ul className="flex flex-wrap justify-end items-center gap-x-4 gap-y-1 text-slate-300 text-xs sm:text-sm">
+            <li className="inline-flex items-center gap-1 sm:gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400"/> Secure</li>
+            <li className="inline-flex items-center gap-1 sm:gap-2"><Waves className="h-4 w-4 text-cyan-400"/> No ads</li>
+            <li className="inline-flex items-center gap-1 sm:gap-2"><Crown className="h-4 w-4 text-amber-400"/> Free</li>
+          </ul>
         </div>
       </header>
 
@@ -177,7 +177,7 @@ export default function App() {
           </p>
 
           <div className="mt-6">
-            <div className="inline-flex items-center justify-center bg-white/5 border border-white/10 rounded-full p-1 gap-1">
+            <div className="inline-flex flex-wrap items-center justify-center bg-white/5 border border-white/10 rounded-full p-1 gap-1">
               {PLATFORMS.map((p) => {
                 const Icon = p.icon
                 const isActive = active === p.key
