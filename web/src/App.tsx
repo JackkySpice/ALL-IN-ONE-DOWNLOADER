@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react'
 import { Download, Music2, PlayCircle, Youtube, Instagram, Facebook, Music, BadgeCheck, Link as LinkIcon, Loader2, Crown, ShieldCheck, Video, Waves, Sparkles, RefreshCw, Info, CheckCircle2 } from 'lucide-react'
 import clsx from 'clsx'
-import { motion } from 'framer-motion'
 import * as Popover from '@radix-ui/react-popover'
 import * as Tabs from '@radix-ui/react-tabs'
+import { FadeInUp, FadeInUpH1 } from './components/Animated'
 
 const PLATFORMS = [
   { key: 'youtube', label: 'YouTube', color: 'text-red-500', icon: Youtube },
@@ -142,12 +142,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-[100dvh] relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900" />
-      <div className="absolute inset-0 bg-grid opacity-[0.35]" />
+      <div className="absolute inset-0 bg-grid opacity-[0.30]" />
+      <div className="absolute inset-0 bg-noise opacity-[0.06]" />
       <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-80 w-[40rem] rounded-full blur-3xl bg-gradient-to-r from-fuchsia-500/20 via-purple-500/20 to-cyan-400/20" />
 
-      <header className="relative z-10 sticky top-0 backdrop-blur border-b border-white/10 bg-slate-950/70">
+      <header className="relative z-10 sticky top-0 backdrop-blur border-b border-white/10 bg-slate-950/70 pt-[env(safe-area-inset-top)]">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-cyan-400 grid place-items-center shadow-lg shadow-fuchsia-500/20 glow">
@@ -168,14 +169,9 @@ export default function App() {
 
       <main className="relative z-10 max-w-6xl mx-auto px-4 py-10">
         <section className="text-center">
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white"
-          >
+          <FadeInUpH1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white">
             Download from <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-400">YouTube</span>, Facebook, TikTok, Instagram & SoundCloud
-          </motion.h1>
+          </FadeInUpH1>
           <p className="mt-3 text-slate-300 max-w-xl mx-auto">
             Paste a link, pick your quality, and download. No sign-up, no watermark. Works on mobile and desktop.
           </p>
@@ -190,7 +186,7 @@ export default function App() {
                     key={p.key}
                     onClick={() => setActive(p.key)}
                     className={clsx(
-                      'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50',
+                      'inline-flex items-center gap-2 rounded-full px-3 sm:py-1.5 py-2 text-sm transition-all brand-focus hover:-translate-y-0.5',
                       isActive ? 'bg-white/10 text-white shadow-[0_0_0_3px] shadow-fuchsia-500/10' : 'text-slate-300 hover:bg-white/5'
                     )}
                   >
@@ -203,13 +199,13 @@ export default function App() {
             </div>
           </div>
 
-          <form onSubmit={onSubmit} className="mt-8 max-w-3xl mx-auto">
+          <form id="analyze-form" onSubmit={onSubmit} className="mt-8 max-w-3xl mx-auto">
             <div className="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-lg">
               <div className="absolute inset-0 pointer-events-none [mask-image:radial-gradient(50%_50%_at_50%_0%,rgba(255,255,255,.4),transparent_70%)] bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,.08),transparent_40%)]" />
               <div className="relative p-3 md:p-4">
                 <div className="text-left text-xs text-slate-400 px-1 pb-2">Source URL</div>
                 <div className="flex flex-col md:flex-row gap-3 items-stretch">
-                  <div className="flex-1 flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 focus-within:border-fuchsia-500/50">
+                  <div className="flex-1 flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 brand-focus-within">
                     <LinkIcon className="h-4 w-4 text-slate-400" />
                     <input
                       value={url}
@@ -218,7 +214,11 @@ export default function App() {
                       aria-label="Source URL"
                       placeholder={`Paste ${PLATFORMS.find(p=>p.key===active)?.label} URL (https://...)`}
                       className="w-full bg-transparent outline-none placeholder:text-slate-500 text-slate-100"
-                      autoFocus
+                      inputMode="url"
+                      enterKeyHint="go"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      spellCheck={false}
                     />
                   </div>
                   <button
@@ -231,14 +231,16 @@ export default function App() {
                         setError('Clipboard permission denied')
                       }
                     }}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50"
+                    aria-label="Paste from clipboard"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 sm:py-2 py-2.5 text-sm font-medium border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 brand-focus transition-all hover:-translate-y-0.5 active:scale-95"
                   >
                     Paste
                   </button>
                   <button
                     type="submit"
+                    aria-busy={loading}
                     className={clsx(
-                      'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50',
+                      'inline-flex items-center justify-center gap-2 rounded-xl px-4 sm:py-2 py-2.5 font-medium transition-all brand-focus',
                       'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 bg-[length:200%_200%] text-white shadow-lg hover:shadow-xl hover:shadow-fuchsia-500/30 hover:animate-gradient-x active:scale-95'
                     )}
                     disabled={loading}
@@ -252,7 +254,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <Popover.Root>
                     <Popover.Trigger asChild>
-                      <button type="button" className="inline-flex items-center gap-2 text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-2 py-1">
+                      <button type="button" className="inline-flex items-center gap-2 text-slate-300 hover:text-white brand-focus rounded px-2 py-1 transition-colors">
                         <Info className="h-3.5 w-3.5"/> Advanced
                       </button>
                     </Popover.Trigger>
@@ -261,9 +263,9 @@ export default function App() {
                     </Popover.Content>
                   </Popover.Root>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')} className="text-slate-300 hover:text-white underline/30 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-1">Sample TikTok</button>
-                    <button type="button" onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')} className="text-slate-300 hover:text-white underline/30 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-1">Sample YouTube</button>
-                    <button type="button" onClick={() => setUrl('https://www.facebook.com/watch/?v=10153231379946729')} className="text-slate-300 hover:text-white underline/30 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-1">Sample Facebook</button>
+                    <button type="button" onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')} className="text-slate-300 hover:text-white underline/30 hover:underline brand-focus rounded px-1">Sample TikTok</button>
+                    <button type="button" onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')} className="text-slate-300 hover:text-white underline/30 hover:underline brand-focus rounded px-1">Sample YouTube</button>
+                    <button type="button" onClick={() => setUrl('https://www.facebook.com/watch/?v=10153231379946729')} className="text-slate-300 hover:text-white underline/30 hover:underline brand-focus rounded px-1">Sample Facebook</button>
                   </div>
                 </div>
               </div>
@@ -271,15 +273,17 @@ export default function App() {
           </form>
 
           {error && (
-            <div className="mt-4 max-w-3xl mx-auto rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-red-200">
+            <div className="mt-4 max-w-3xl mx-auto rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-red-200" role="alert">
               {error}
             </div>
           )}
+
+          <div className="sr-only" aria-live="polite">{loading ? 'Analyzing URL…' : data ? 'Formats ready' : error ? `Error: ${error}` : ''}</div>
         </section>
 
         {data && (
           <section className="mt-10 grid gap-6 md:grid-cols-[2fr_3fr]">
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+            <FadeInUp className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-white/10">
                 <div className="text-sm uppercase tracking-wider text-slate-400 mb-2 inline-flex items-center gap-2"><Video className="h-4 w-4"/> Details</div>
                 <h2 className="text-xl font-semibold text-white">{data.title || 'Untitled'}</h2>
@@ -291,12 +295,12 @@ export default function App() {
               <div className="p-4 text-left text-slate-400 text-sm">
                 <div className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-emerald-400"/> Extractor: {data.extractor}</div>
               </div>
-            </motion.div>
+            </FadeInUp>
 
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+            <FadeInUp className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-white/10 flex items-center justify-between">
                 <div className="text-sm uppercase tracking-wider text-slate-400 inline-flex items-center gap-2"><Download className="h-4 w-4"/> Download Options</div>
-                <button onClick={() => { setUrl(data.webpage_url || ''); setData(null); setError(null); }} className="text-slate-300 hover:text-white inline-flex items-center gap-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 rounded px-2 py-1">
+                <button onClick={() => { setUrl(data.webpage_url || ''); setData(null); setError(null); }} className="text-slate-300 hover:text-white inline-flex items-center gap-2 text-sm brand-focus rounded px-2 py-1">
                   <RefreshCw className="h-4 w-4"/> New link
                 </button>
               </div>
@@ -304,13 +308,13 @@ export default function App() {
               <div className="p-4">
                 <Tabs.Root defaultValue={recommended.length > 0 ? 'rec' : 'video'}>
                   <Tabs.List className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
-                    <Tabs.Trigger value="rec" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50 disabled:opacity-50">
+                    <Tabs.Trigger value="rec" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 brand-focus transition-colors disabled:opacity-50">
                       Recommended
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="video" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50">
+                    <Tabs.Trigger value="video" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 brand-focus transition-colors">
                       Video
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="audio" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/50">
+                    <Tabs.Trigger value="audio" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 brand-focus transition-colors">
                       Audio
                     </Tabs.Trigger>
                   </Tabs.List>
@@ -354,7 +358,7 @@ export default function App() {
                   </div>
                 </Tabs.Root>
               </div>
-            </motion.div>
+            </FadeInUp>
           </section>
         )}
 
@@ -367,12 +371,30 @@ export default function App() {
           </div>
         )}
 
-        <section className="mt-12 text-center text-xs text-slate-500">
+        <section className="mt-12 text-center text-xs text-slate-500 pb-[env(safe-area-inset-bottom)]">
           <p>
             Always respect each service's Terms of Service and copyright. Use this tool only for content you own rights to or have permission to download.
           </p>
         </section>
       </main>
+
+      {/* Sticky Analyze bar on mobile */}
+      <div className="md:hidden fixed left-0 right-0 bottom-0 z-20 bg-slate-900/80 backdrop-blur border-t border-white/10 px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+        <div className="max-w-6xl mx-auto flex items-center gap-2">
+          <button
+            type="submit"
+            form="analyze-form"
+            aria-busy={loading}
+            className={clsx(
+              'flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-medium transition-all brand-focus',
+              'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 bg-[length:200%_200%] text-white shadow-lg hover:shadow-xl hover:shadow-fuchsia-500/30 hover:animate-gradient-x active:scale-95'
+            )}
+            disabled={loading}
+          >
+            {loading ? (<><Loader2 className="h-4 w-4 animate-spin"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4"/> Analyze</>)}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -403,7 +425,7 @@ function FormatRow({ format }: { format: Format }) {
   }, [format.format_id, format.direct_url])
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 transition-all hover:-translate-y-0.5">
       <div className="flex items-center gap-3 min-w-0">
         <div className={clsx('h-9 w-9 grid place-items-center rounded-lg', isAudio ? 'bg-emerald-500/15' : isMuxed ? 'bg-cyan-500/15' : 'bg-purple-500/15')}>
           {isAudio ? <Music2 className="h-4 w-4 text-emerald-400"/> : isMuxed ? <PlayCircle className="h-4 w-4 text-cyan-400"/> : <Video className="h-4 w-4 text-purple-400"/>}
@@ -423,7 +445,7 @@ function FormatRow({ format }: { format: Format }) {
             target="_blank"
             rel="noopener noreferrer"
             download
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white"
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
           >
             <Download className="h-4 w-4"/> Download
           </a>
