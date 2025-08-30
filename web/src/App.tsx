@@ -378,23 +378,6 @@ export default function App() {
         </section>
       </main>
 
-      {/* Sticky Analyze bar on mobile */}
-      <div className="md:hidden fixed left-0 right-0 bottom-0 z-20 bg-slate-900/80 backdrop-blur border-t border-white/10 px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
-        <div className="max-w-6xl mx-auto flex items-center gap-2">
-          <button
-            type="submit"
-            form="analyze-form"
-            aria-busy={loading}
-            className={clsx(
-              'flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-medium transition-all brand-focus',
-              'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 bg-[length:200%_200%] text-white shadow-lg hover:shadow-xl hover:shadow-fuchsia-500/30 hover:animate-gradient-x active:scale-95'
-            )}
-            disabled={loading}
-          >
-            {loading ? (<><Loader2 className="h-4 w-4 animate-spin"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4"/> Analyze</>)}
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
