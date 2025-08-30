@@ -22,8 +22,25 @@ body {
   background-position: -12px -12px;
 }
 
+/* Subtle noise overlay for depth */
+.bg-noise {
+  background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+/* Brand glow utility */
 .glow {
   box-shadow: 0 0 60px rgba(168, 85, 247, 0.25), 0 0 120px rgba(6, 182, 212, 0.15);
+}
+
+/* Gradient-like focus ring for accessibility */
+.brand-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(168,85,247,0.35), 0 0 0 6px rgba(34,211,238,0.25);
+}
+
+.brand-focus-within:focus-within {
+  box-shadow: 0 0 0 3px rgba(168,85,247,0.35), 0 0 0 6px rgba(34,211,238,0.25);
 }
 
 @media (max-width: 640px) {
