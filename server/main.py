@@ -290,9 +290,10 @@ async def extract_media(req: ExtractRequest):
             )
         )
 
-    # Sort formats: prefer direct HTTP(S) muxed MP4, then by resolution/bitrate
+    # Sort formats: favor highest resolution muxed streams, then protocol/extension
     def sort_key(fmt: FormatModel):
         muxed_priority = 0 if (fmt.vcodec and fmt.acodec and fmt.vcodec != "none" and fmt.acodec != "none") else 1
+        ext_penalty = 0 if (fmt.ext or "").lower() == "mp4" else 1
         # Prefer non-HLS/DASH protocols for browser-friendly direct downloads
         protocol_penalty = 0
         proto = (fmt.protocol or "").lower()
@@ -303,7 +304,6 @@ async def extract_media(req: ExtractRequest):
                 protocol_penalty = 0
             else:
                 protocol_penalty = 1
-        ext_penalty = 0 if (fmt.ext or "").lower() == "mp4" else 1
         height_val = 0
         if fmt.resolution:
             if "x" in fmt.resolution:
@@ -317,7 +317,7 @@ async def extract_media(req: ExtractRequest):
                 except Exception:
                     height_val = 0
         bitrate_val = fmt.audio_bitrate or 0
-        return (protocol_penalty, ext_penalty, muxed_priority, -height_val, -bitrate_val)
+        return (muxed_priority, -height_val, protocol_penalty, ext_penalty, -bitrate_val)
 
     formats.sort(key=sort_key)
 
