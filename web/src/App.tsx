@@ -678,7 +678,7 @@ function FormatRow({ format }: { format: Format }) {
   }, [format.format_id])
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 transition-all hover:-translate-y-0.5">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 transition-all hover:-translate-y-0.5">
       <div className="flex items-center gap-3 min-w-0">
         <div className={clsx('h-9 w-9 grid place-items-center rounded-lg', isAudio ? 'bg-emerald-500/15' : isMuxed ? 'bg-cyan-500/15' : 'bg-purple-500/15')}>
           {isAudio ? <Music2 className="h-4 w-4 text-emerald-400"/> : isMuxed ? <PlayCircle className="h-4 w-4 text-cyan-400"/> : <Video className="h-4 w-4 text-purple-400"/>}
@@ -688,7 +688,7 @@ function FormatRow({ format }: { format: Format }) {
           <div className="text-xs text-slate-400">{format.filesize_pretty ?? 'Size unknown'}</div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
         {protocolLabel && (
           <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 text-slate-400">{protocolLabel}</span>
         )}
