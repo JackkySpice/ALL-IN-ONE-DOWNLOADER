@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -84,6 +85,16 @@ class ExtractResponse(BaseModel):
     webpage_url: Optional[str] = None
     extractor: Optional[str] = None
     formats: List[FormatModel]
+    # Flattened list of available subtitle tracks (manual and auto captions)
+    # Each entry identifies language, optional extension, and direct URL
+    # Auto-generated captions are marked with auto=True
+    class SubtitleTrackModel(BaseModel):
+        lang: str
+        ext: Optional[str] = None
+        url: Optional[str] = None
+        auto: bool = False
+
+    subtitles: List[SubtitleTrackModel] = []
 
 
 def human_readable_bytes(num_bytes: Optional[int]) -> Optional[str]:
@@ -483,6 +494,34 @@ async def extract_media(req: ExtractRequest):
 
     formats.sort(key=sort_key)
 
+    # Collect subtitles and automatic captions
+    def _collect_subs(info_obj: dict, key: str, auto_flag: bool) -> List[ExtractResponse.SubtitleTrackModel]:
+        results: List[ExtractResponse.SubtitleTrackModel] = []
+        try:
+            subs = info_obj.get(key) or {}
+            for lang, tracks in (subs.items() if isinstance(subs, dict) else []):
+                if not tracks:
+                    continue
+                for t in tracks or []:
+                    url = t.get("url")
+                    if not url:
+                        continue
+                    results.append(
+                        ExtractResponse.SubtitleTrackModel(
+                            lang=str(lang),
+                            ext=t.get("ext"),
+                            url=url,
+                            auto=auto_flag,
+                        )
+                    )
+        except Exception:
+            pass
+        return results
+
+    subtitle_tracks: List[ExtractResponse.SubtitleTrackModel] = []
+    subtitle_tracks.extend(_collect_subs(info, "subtitles", False))
+    subtitle_tracks.extend(_collect_subs(info, "automatic_captions", True))
+
     return ExtractResponse(
         id=info.get("id"),
         title=info.get("title"),
@@ -491,6 +530,7 @@ async def extract_media(req: ExtractRequest):
         webpage_url=info.get("webpage_url"),
         extractor=info.get("extractor"),
         formats=formats,
+        subtitles=subtitle_tracks,
     )
 
 
@@ -714,6 +754,248 @@ async def proxy_download(request: Request, source: str, format_id: str):
         headers=response_headers,
         status_code=upstream_status,
     )
+
+
+@app.get("/api/subtitle")
+async def proxy_subtitle(request: Request, source: str, lang: str, ext: Optional[str] = None, auto: bool = False):
+    """Proxy subtitle or auto-caption track to client, preserving headers/cookies."""
+    if not source or not lang:
+        raise HTTPException(status_code=400, detail="Missing source or lang")
+
+    # Validate source URL
+    try:
+        parsed_source = urlparse(source)
+        if parsed_source.scheme not in {"http", "https"} or not parsed_source.netloc:
+            raise ValueError("invalid")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid source URL; must be http(s)")
+
+    try:
+        info = await _extract_info_threaded(source, build_ydl_opts(source))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
+
+    if info.get("entries"):
+        info = info["entries"][0]
+
+    subs_key = "automatic_captions" if auto else "subtitles"
+    subs_obj = info.get(subs_key) or {}
+    tracks = subs_obj.get(lang) or []
+    if not tracks:
+        raise HTTPException(status_code=404, detail="Subtitle language not found")
+    target_track = None
+    if ext:
+        for t in tracks:
+            if str(t.get("ext")).lower() == str(ext).lower():
+                target_track = t
+                break
+    if not target_track:
+        target_track = tracks[0]
+    s_url = target_track.get("url")
+    if not s_url:
+        raise HTTPException(status_code=404, detail="Subtitle URL not found")
+
+    # Headers
+    headers = (info.get("http_headers") or {}).copy()
+    headers.setdefault("User-Agent", _get_default_user_agent())
+    referer = _build_referer_for(source)
+    if referer:
+        headers.setdefault("Referer", referer)
+        headers.setdefault("Origin", referer[:-1])
+
+    client = httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=httpx.Timeout(connect=15.0, read=None, write=30.0, pool=None),
+        http2=True,
+        limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+    )
+    try:
+        req_up = client.build_request("GET", s_url, headers=headers)
+        resp = await client.send(req_up, stream=True)
+    except Exception as e:
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"Upstream error: {e}")
+
+    upstream_status = resp.status_code
+    upstream_headers = resp.headers
+    media_type = upstream_headers.get("Content-Type") or ("text/vtt" if (target_track.get("ext") or "").lower() == "vtt" else "application/x-subrip")
+
+    title = info.get("title") or "subtitle"
+    s_ext = target_track.get("ext") or "vtt"
+    filename = f"{title}.{lang}.{s_ext}"
+
+    response_headers = {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+    }
+    passthrough = ["Content-Length", "ETag", "Last-Modified", "Cache-Control"]
+    for name in passthrough:
+        if name in upstream_headers and upstream_headers.get(name):
+            response_headers[name] = upstream_headers.get(name)
+
+    async def body_iter():
+        try:
+            async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            await resp.aclose()
+            await client.aclose()
+
+    return StreamingResponse(body_iter(), media_type=media_type, headers=response_headers, status_code=upstream_status)
+
+
+@app.get("/api/convert_mp3")
+async def convert_mp3(request: Request, source: str, format_id: Optional[str] = None, bitrate_kbps: Optional[int] = 192):
+    """Transcode selected format (or best audio) to MP3 and stream it."""
+    if not source:
+        raise HTTPException(status_code=400, detail="Missing source")
+
+    # Validate source
+    try:
+        parsed_source = urlparse(source)
+        if parsed_source.scheme not in {"http", "https"} or not parsed_source.netloc:
+            raise ValueError("invalid")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid source URL; must be http(s)")
+
+    # Extract to obtain direct URL and headers
+    try:
+        fmt_selector = f"{format_id}" if format_id else "bestaudio/best"
+        info = await _extract_info_threaded(source, build_ydl_opts(source, format_selector=fmt_selector))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
+
+    if info.get("entries"):
+        info = info["entries"][0]
+
+    target = None
+    if format_id:
+        for f in info.get("formats", []) or []:
+            if str(f.get("format_id")) == str(format_id) and f.get("url"):
+                target = f
+                break
+    if not target:
+        # Choose best audio-only or best available
+        for f in info.get("formats", []) or []:
+            vcodec = f.get("vcodec")
+            if (vcodec == "none" or not vcodec) and f.get("url"):
+                target = f
+                break
+        if not target:
+            # Fallback to first format with URL
+            for f in info.get("formats", []) or []:
+                if f.get("url"):
+                    target = f
+                    break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="No suitable format found")
+
+    direct_url = target.get("url")
+    if not direct_url:
+        raise HTTPException(status_code=404, detail="Format URL not found")
+
+    # Build headers for ffmpeg
+    headers = (info.get("http_headers") or {}).copy()
+    if target.get("http_headers"):
+        headers.update(target.get("http_headers") or {})
+    headers.setdefault("User-Agent", _get_default_user_agent())
+    referer = _build_referer_for(source)
+    if referer:
+        headers.setdefault("Referer", referer)
+        headers.setdefault("Origin", referer[:-1])
+
+    # Construct header lines for ffmpeg
+    header_lines = "\r\n".join([f"{k}: {v}" for k, v in headers.items()]) + "\r\n"
+
+    title = info.get("title") or "audio"
+    filename = f"{title}.mp3"
+
+    # Spawn ffmpeg to transcode to MP3 and stream stdout
+    cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-nostdin",
+        "-headers", header_lines,
+        "-i", direct_url,
+        "-vn",
+        "-acodec", "libmp3lame",
+        "-b:a", f"{int(bitrate_kbps or 192)}k",
+        "-f", "mp3",
+        "-",
+    ]
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start transcoder: {e}")
+
+    async def ffmpeg_iter():
+        try:
+            assert proc.stdout is not None
+            while True:
+                chunk = await proc.stdout.read(64 * 1024)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            try:
+                if proc.returncode is None:
+                    proc.kill()
+            except Exception:
+                pass
+
+    response_headers = {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+    }
+
+    return StreamingResponse(ffmpeg_iter(), media_type="audio/mpeg", headers=response_headers)
+
+
+@app.get("/api/cookies/status")
+def cookies_status() -> dict:
+    """Return whether a cookie file is configured and exists."""
+    cookiefile = os.getenv("AOI_COOKIEFILE")
+    if not cookiefile:
+        for path in [
+            os.path.join(APP_DIR, ".cookies.txt"),
+            os.path.join(REPO_ROOT, "cookies.txt"),
+            os.path.join(REPO_ROOT, ".cookies.txt"),
+        ]:
+            if os.path.exists(path):
+                cookiefile = path
+                break
+    enabled = bool(cookiefile and os.path.exists(cookiefile))
+    return {"enabled": enabled, **({"path": cookiefile} if cookiefile else {})}
+
+
+@app.delete("/api/auth/me")
+def delete_me(request: Request, response: Response):
+    sess = _read_session(request)
+    if not sess:
+        # Idempotent
+        return {"ok": True}
+    if sess.get("guest"):
+        _clear_session(response)
+        return {"ok": True}
+    uid = sess.get("uid")
+    with _users_lock:
+        db = _load_users()
+        before = len(db.get("users", []))
+        db["users"] = [u for u in db.get("users", []) if u.get("id") != uid]
+        if len(db.get("users", [])) != before:
+            _save_users(db)
+    _clear_session(response)
+    return {"ok": True}
 
 
 # Serve frontend (Vite build) if present
