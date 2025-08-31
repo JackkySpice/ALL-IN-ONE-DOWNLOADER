@@ -1,11 +1,15 @@
 import os
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+import json
+import uuid
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+import bcrypt
 import httpx
 import anyio
 import threading
@@ -27,6 +31,7 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(APP_DIR, os.pardir))
 DIST_DIR = os.path.join(REPO_ROOT, "web", "dist")
 INDEX_FILE = os.path.join(DIST_DIR, "index.html")
+USERS_DB_PATH = os.path.join(APP_DIR, "users.json")
 
 
 # Allow passing cookies via env as base64 (Netscape cookie file). This makes it
@@ -106,6 +111,163 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+###############################################################################
+# Basic email/guest authentication (cookie session)
+###############################################################################
+
+_SECRET = os.getenv("AOI_SECRET", "dev-change-me")
+_COOKIE_NAME = "aoi_session"
+_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days
+_COOKIE_SECURE = os.getenv("AOI_COOKIE_SECURE", "0") not in {"0", "false", "False", ""}
+
+_session_serializer = URLSafeTimedSerializer(_SECRET, salt="aoi.session")
+
+_users_lock = threading.Lock()
+
+
+def _load_users() -> dict:
+    if not os.path.exists(USERS_DB_PATH):
+        return {"users": []}
+    try:
+        with open(USERS_DB_PATH, "r", encoding="utf-8") as fh:
+            return json.load(fh) or {"users": []}
+    except Exception:
+        return {"users": []}
+
+
+def _save_users(payload: dict) -> None:
+    tmp_path = USERS_DB_PATH + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh)
+    os.replace(tmp_path, USERS_DB_PATH)
+
+
+def _normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+def _hash_password(password: str) -> str:
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+
+
+def _verify_password(password: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+    except Exception:
+        return False
+
+
+def _create_session(response: Response, user: dict) -> None:
+    token = _session_serializer.dumps({
+        "uid": user["id"],
+        "email": user.get("email"),
+        "guest": bool(user.get("guest")),
+    })
+    response.set_cookie(
+        key=_COOKIE_NAME,
+        value=token,
+        max_age=_COOKIE_MAX_AGE_SECONDS,
+        httponly=True,
+        samesite="lax",
+        secure=_COOKIE_SECURE,
+        path="/",
+    )
+
+
+def _clear_session(response: Response) -> None:
+    response.delete_cookie(_COOKIE_NAME, path="/")
+
+
+def _read_session(request: Request) -> Optional[dict]:
+    token = request.cookies.get(_COOKIE_NAME)
+    if not token:
+        return None
+    try:
+        payload = _session_serializer.loads(token, max_age=_COOKIE_MAX_AGE_SECONDS)
+        return payload
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+class AuthCredentials(BaseModel):
+    email: str
+    password: str
+
+
+class PublicUser(BaseModel):
+    id: str
+    email: Optional[str] = None
+    guest: bool = False
+
+
+def _user_to_public(user: dict) -> PublicUser:
+    return PublicUser(id=user["id"], email=user.get("email"), guest=bool(user.get("guest")))
+
+
+@app.post("/api/auth/signup", response_model=PublicUser)
+def auth_signup(creds: AuthCredentials, response: Response):
+    email = _normalize_email(creds.email)
+    if not email or not creds.password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+    with _users_lock:
+        db = _load_users()
+        if any(u.get("email") == email for u in db.get("users", [])):
+            raise HTTPException(status_code=409, detail="Email already registered")
+        user = {
+            "id": uuid.uuid4().hex,
+            "email": email,
+            "password_hash": _hash_password(creds.password),
+            "guest": False,
+        }
+        db.setdefault("users", []).append(user)
+        _save_users(db)
+    _create_session(response, user)
+    return _user_to_public(user)
+
+
+@app.post("/api/auth/login", response_model=PublicUser)
+def auth_login(creds: AuthCredentials, response: Response):
+    email = _normalize_email(creds.email)
+    with _users_lock:
+        db = _load_users()
+        user = next((u for u in db.get("users", []) if u.get("email") == email and not u.get("guest")), None)
+        if not user or not _verify_password(creds.password, user.get("password_hash", "")):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+    _create_session(response, user)
+    return _user_to_public(user)
+
+
+@app.post("/api/auth/guest", response_model=PublicUser)
+def auth_guest(response: Response):
+    # Create ephemeral guest user (not persisted)
+    user = {"id": uuid.uuid4().hex, "email": None, "guest": True}
+    _create_session(response, user)
+    return _user_to_public(user)
+
+
+@app.get("/api/auth/me", response_model=Optional[PublicUser])
+def auth_me(request: Request):
+    sess = _read_session(request)
+    if not sess:
+        return None
+    if sess.get("guest"):
+        return PublicUser(id=sess.get("uid"), email=None, guest=True)
+    # For registered users, verify still exists
+    with _users_lock:
+        db = _load_users()
+        user = next((u for u in db.get("users", []) if u.get("id") == sess.get("uid")), None)
+        if not user:
+            return None
+        return _user_to_public(user)
+
+
+@app.post("/api/auth/logout")
+def auth_logout(response: Response):
+    _clear_session(response)
+    return {"ok": True}
 
 
 def _get_default_user_agent() -> str:

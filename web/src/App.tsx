@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import * as Popover from '@radix-ui/react-popover'
 import * as Tabs from '@radix-ui/react-tabs'
 import { FadeInUp, FadeInUpH1 } from './components/Animated'
+import AuthModal from './components/AuthModal'
 
 const PLATFORMS = [
   { key: 'youtube', label: 'YouTube', color: 'text-red-500', icon: Youtube },
@@ -94,6 +95,20 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<ExtractResponse | null>(null)
   const [aborter, setAborter] = useState<AbortController | null>(null)
+  const [user, setUser] = useState<{ id: string, email?: string | null, guest: boolean } | null>(null)
+  const [authOpen, setAuthOpen] = useState(false)
+
+  React.useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' })
+        if (res.ok) {
+          const u = await res.json()
+          setUser(u)
+        }
+      } catch {}
+    })()
+  }, [])
 
   const recommended = useMemo(() => {
     if (!data) return [] as Format[]
@@ -163,6 +178,22 @@ export default function App() {
             <li className="inline-flex items-center gap-1 sm:gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400"/> Secure</li>
             <li className="inline-flex items-center gap-1 sm:gap-2"><Waves className="h-4 w-4 text-cyan-400"/> No ads</li>
             <li className="inline-flex items-center gap-1 sm:gap-2"><Crown className="h-4 w-4 text-amber-400"/> Free</li>
+            <li>
+              {user ? (
+                <div className="inline-flex items-center gap-2">
+                  <span className="text-slate-200">{user.email || 'Guest'}</span>
+                  <button
+                    onClick={async () => { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); setUser(null) }}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 hover:bg-white/10"
+                  >Logout</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAuthOpen(true)}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 hover:bg-white/10"
+                >Log in</button>
+              )}
+            </li>
           </ul>
         </div>
       </header>
@@ -378,6 +409,11 @@ export default function App() {
         </section>
       </main>
 
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        onAuthSuccess={(u) => setUser(u)}
+      />
     </div>
   )
 }
