@@ -260,7 +260,7 @@ export default function App() {
   function onDragOverHandler(ev: React.DragEvent) { ev.preventDefault() }
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden">
+    <div className="min-h-[100dvh] relative overflow-x-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900" />
       <div className="absolute inset-0 bg-grid opacity-[0.30]" />
       <div className="absolute inset-0 bg-noise opacity-[0.06]" />
@@ -515,7 +515,7 @@ export default function App() {
                         <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.onlyMuxed} onChange={e => setPrefs(p => ({ ...p, onlyMuxed: e.target.checked }))}/> Only muxed</label>
                         <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.hideStreaming} onChange={e => setPrefs(p => ({ ...p, hideStreaming: e.target.checked }))}/> Hide HLS/DASH</label>
                       </div>
-                      <div className="grid gap-2 max-h-[300px] overflow-auto pr-1">
+                      <div className="grid gap-2 max-h-[60vh] overflow-auto pr-1">
                         {videos.length === 0 ? (
                           <div className="text-slate-400 text-sm">No video formats found</div>
                         ) : (
@@ -531,7 +531,7 @@ export default function App() {
                         <FilterIcon className="h-3.5 w-3.5"/>
                         <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.hideStreaming} onChange={e => setPrefs(p => ({ ...p, hideStreaming: e.target.checked }))}/> Hide HLS/DASH</label>
                       </div>
-                      <div className="grid gap-2 max-h-[260px] overflow-auto pr-1">
+                      <div className="grid gap-2 max-h-[60vh] overflow-auto pr-1">
                         {audios.length === 0 ? (
                           <div className="text-slate-400 text-sm">No audio formats found</div>
                         ) : (
@@ -551,7 +551,7 @@ export default function App() {
                             <Languages className="h-3.5 w-3.5"/>
                             <label className="inline-flex items-center gap-2"><input type="checkbox" checked={showAutoSubs} onChange={e => setShowAutoSubs(e.target.checked)}/> Show auto-captions</label>
                           </div>
-                          <div className="grid gap-2 max-h-[260px] overflow-auto pr-1">
+                          <div className="grid gap-2 max-h-[60vh] overflow-auto pr-1">
                             {Object.entries(
                               (data.subtitles || []).filter(s => showAutoSubs ? true : !s.auto).reduce((acc: Record<string, { lang: string, tracks: { ext?: string | null, auto?: boolean }[] }>, s) => {
                                 acc[s.lang] = acc[s.lang] || { lang: s.lang, tracks: [] }
@@ -688,7 +688,7 @@ function FormatRow({ format }: { format: Format }) {
           <div className="text-xs text-slate-400">{format.filesize_pretty ?? 'Size unknown'}</div>
         </div>
       </div>
-      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
         {protocolLabel && (
           <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 text-slate-400">{protocolLabel}</span>
         )}
@@ -698,19 +698,19 @@ function FormatRow({ format }: { format: Format }) {
             target="_blank"
             rel="noopener noreferrer"
             download
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
+            className="inline-flex items-center gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
           >
             <Download className="h-4 w-4"/> Download
           </a>
         )}
         {proxyHref && (
           <button onClick={copyLink} className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 brand-focus">
-            <Copy className="h-3.5 w-3.5"/> Copy link
+            <Copy className="h-3.5 w-3.5"/> <span className="hidden sm:inline">Copy link</span><span className="sm:hidden">Copy</span>
           </button>
         )}
         {isAudio && (
           <a href={mp3Href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 brand-focus">
-            <Download className="h-3.5 w-3.5"/> MP3
+            <Download className="h-3.5 w-3.5"/> <span className="sm:hidden">MP3</span><span className="hidden sm:inline">MP3</span>
           </a>
         )}
       </div>
