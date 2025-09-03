@@ -478,7 +478,7 @@ export default function App() {
 
               <div className="p-4">
                 <Tabs.Root defaultValue={recommended.length > 0 ? 'rec' : 'video'}>
-                  <Tabs.List className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
+                  <Tabs.List className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
                     <Tabs.Trigger value="rec" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 brand-focus transition-colors disabled:opacity-50">
                       Recommended
                     </Tabs.Trigger>
