@@ -1,3 +1,7 @@
+import tokens from './src/design/tokens.json' assert { type: 'json' }
+
+const { brand, effects, radii, layout } = tokens
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -10,22 +14,22 @@ export default {
         sans: ['InterVariable', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'Apple Color Emoji', 'Segoe UI Emoji'],
       },
       borderRadius: {
-        xl: '0.75rem',
-        '2xl': '1rem',
-        '3xl': '1.5rem',
+        xl: radii.tailwind.xl,
+        '2xl': radii.tailwind['2xl'],
+        '3xl': radii.tailwind['3xl'],
       },
       boxShadow: {
-        glow: '0 0 60px rgba(168, 85, 247, 0.25), 0 0 120px rgba(6, 182, 212, 0.15)',
+        glow: effects.glow,
       },
       colors: {
         brand: {
-          start: '#f0abfc', // fuchsia-300
-          mid: '#c4b5fd',   // purple-300
-          end: '#67e8f9',   // cyan-300
+          start: brand.start,
+          mid: brand.mid,
+          end: brand.end,
         },
       },
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(to right, var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to))',
+        brand: `linear-gradient(110deg, ${brand.start}, ${brand.mid}, ${brand.end})`,
       },
       keyframes: {
         'gradient-x': {
@@ -35,6 +39,9 @@ export default {
       },
       animation: {
         'gradient-x': 'gradient-x 8s ease infinite',
+      },
+      maxWidth: {
+        'screen-content': layout.contentWidth,
       },
     },
   },
