@@ -2,6 +2,9 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
+import { applyDesignTokens } from './design/applyDesignTokens'
+
+applyDesignTokens()
 
 const container = document.getElementById('root')!
 const root = createRoot(container)

@@ -5,6 +5,9 @@ import * as Popover from '@radix-ui/react-popover'
 import * as Tabs from '@radix-ui/react-tabs'
 import { FadeInUp, FadeInUpH1 } from './components/Animated'
 import AuthModal from './components/AuthModal'
+import { Button } from './components/ui/Button'
+import { Surface } from './components/ui/Surface'
+import { ChipToggle } from './components/ui/ChipToggle'
 
 const PLATFORMS = [
   { key: 'youtube', label: 'YouTube', color: 'text-red-500', icon: Youtube },
@@ -268,64 +271,74 @@ export default function App() {
       <div className="absolute inset-0 bg-noise opacity-[0.06]" />
       <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-80 w-[40rem] rounded-full blur-3xl bg-gradient-to-r from-fuchsia-500/20 via-purple-500/20 to-cyan-400/20" />
 
-      <header className="relative z-10 sticky top-0 backdrop-blur border-b border-white/10 bg-slate-950/70 pt-[env(safe-area-inset-top)]">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+      <header className="relative z-10 sticky top-0 backdrop-blur border-b border-[color:var(--aoi-colors-border-subtle)] bg-[color:var(--aoi-colors-background)]/85 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-screen-content mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-cyan-400 grid place-items-center shadow-lg shadow-fuchsia-500/20 glow">
               <Download className="h-5 w-5 text-white" aria-hidden="true" />
             </div>
             <div>
-              <div className="text-white font-semibold tracking-tight">All-In-One Downloader</div>
-              <div className="text-xs text-slate-400 -mt-0.5">Fast. Gorgeous. Private.</div>
+              <div className="text-[color:var(--aoi-colors-text-primary)] font-semibold tracking-tight">All-In-One Downloader</div>
+              <div className="text-xs text-[color:var(--aoi-colors-text-muted)] -mt-0.5">Fast. Gorgeous. Private.</div>
             </div>
           </div>
-          <ul className="flex flex-wrap justify-end items-center gap-x-4 gap-y-1 text-slate-300 text-xs sm:text-sm">
+          <ul className="flex flex-wrap justify-end items-center gap-x-4 gap-y-1 text-[color:var(--aoi-colors-text-secondary)] text-xs sm:text-sm">
             <li className="inline-flex items-center gap-1 sm:gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400" aria-hidden="true"/> Secure</li>
             <li className="inline-flex items-center gap-1 sm:gap-2"><Waves className="h-4 w-4 text-cyan-400" aria-hidden="true"/> No ads</li>
             <li className="inline-flex items-center gap-1 sm:gap-2"><Crown className="h-4 w-4 text-amber-400" aria-hidden="true"/> Free</li>
-            <li className="inline-flex items-center gap-1 sm:gap-2"><Cookie className="h-4 w-4 text-pink-400" aria-hidden="true"/> Cookies: <span className={clsx('font-medium', cookiesOn ? 'text-emerald-300' : 'text-slate-400')}>{cookiesOn == null ? '—' : cookiesOn ? 'On' : 'Off'}</span></li>
+            <li className="inline-flex items-center gap-1 sm:gap-2"><Cookie className="h-4 w-4 text-pink-400" aria-hidden="true"/> Cookies: <span className={clsx('font-medium', cookiesOn ? 'text-emerald-300' : 'text-[color:var(--aoi-colors-text-muted)]')}>{cookiesOn == null ? '—' : cookiesOn ? 'On' : 'Off'}</span></li>
             {installPrompt && (
               <li>
-                <button
+                <Button
+                  size="xs"
+                  variant="soft"
                   onClick={async () => { try { await installPrompt.prompt?.(); } catch {} finally { setInstallPrompt(null) } }}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1 hover:bg-white/10"
                 >
                   Install
-                </button>
+                </Button>
               </li>
             )}
             <li>
               {user ? (
                 <div className="inline-flex items-center gap-2">
-                  <span className="text-slate-200">{user.email || 'Guest'}</span>
-                  <button
-                    onClick={async () => { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); setUser(null) }}
-                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 hover:bg-white/10"
-                  >Logout</button>
+                  <span className="text-[color:var(--aoi-colors-text-primary)]">{user.email || 'Guest'}</span>
+                  <Button
+                    size="xs"
+                    variant="soft"
+                    onClick={async () => {
+                      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+                      setUser(null)
+                    }}
+                  >
+                    Logout
+                  </Button>
                 </div>
               ) : (
-                <button
+                <Button
+                  size="sm"
+                  variant="surface"
                   onClick={() => setAuthOpen(true)}
-                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 hover:bg-white/10"
-                >Log in</button>
+                >
+                  Log in
+                </Button>
               )}
             </li>
           </ul>
         </div>
       </header>
 
-      <main className="relative z-10 max-w-6xl mx-auto px-4 py-10" onDrop={onDropHandler} onDragOver={onDragOverHandler}>
+      <main className="relative z-10 max-w-screen-content mx-auto px-4 py-10" onDrop={onDropHandler} onDragOver={onDragOverHandler}>
         <section className="text-center">
-          <FadeInUpH1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white">
-            Download from <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-400">YouTube</span>, Facebook, TikTok, Instagram & SoundCloud
+          <FadeInUpH1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-[color:var(--aoi-colors-text-primary)]">
+            Download from <span className="text-transparent bg-clip-text bg-brand-gradient">YouTube</span>, Facebook, TikTok, Instagram & SoundCloud
           </FadeInUpH1>
-          <p className="mt-3 text-slate-300 max-w-xl mx-auto">
+          <p className="mt-3 text-[color:var(--aoi-colors-text-secondary)] max-w-xl mx-auto">
             Paste a link, pick your quality, and download. No sign-up, no watermark. Works on mobile and desktop.
           </p>
 
           <div className="mt-6">
             <div
-              className="inline-flex flex-wrap items-center justify-center bg-white/5 border border-white/10 rounded-full p-1 gap-1"
+              className="inline-flex flex-wrap items-center justify-center rounded-full border border-[color:var(--aoi-colors-border-subtle)] bg-[color:var(--aoi-colors-surface-muted)] p-1 gap-1"
               role="tablist"
               aria-label="Select a platform"
             >
@@ -333,10 +346,18 @@ export default function App() {
                 const Icon = p.icon
                 const isActive = active === p.key
                 return (
-                  <button
+                  <Button
                     key={p.key}
-                    ref={(el) => { platformRefs.current[index] = el }}
-                    type="button"
+                    ref={(el) => { platformRefs.current[index] = el as HTMLButtonElement | null }}
+                    shape="pill"
+                    size="sm"
+                    variant={isActive ? 'surface' : 'ghost'}
+                    className={clsx(
+                      'px-3 py-2 sm:py-1.5 text-sm transition-all',
+                      isActive
+                        ? 'text-[color:var(--aoi-colors-text-primary)] shadow-[0_0_0_1px_rgba(168,85,247,0.35)]'
+                        : 'text-[color:var(--aoi-colors-text-secondary)] hover:-translate-y-0.5'
+                    )}
                     onClick={() => setActive(p.key)}
                     onKeyDown={(event) => {
                       if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
@@ -362,35 +383,31 @@ export default function App() {
                     role="tab"
                     aria-selected={isActive}
                     tabIndex={isActive ? 0 : -1}
-                    className={clsx(
-                      'inline-flex items-center gap-2 rounded-full px-3 sm:py-1.5 py-2 text-sm transition-all brand-focus hover:-translate-y-0.5',
-                      isActive ? 'bg-white/10 text-white shadow-[0_0_0_3px] shadow-fuchsia-500/10' : 'text-slate-300 hover:bg-white/5'
-                    )}
                   >
                     <Icon className={clsx('h-4 w-4', p.color)} aria-hidden="true" />
                     <span className="font-medium">{p.label}</span>
                     {isActive && <BadgeCheck className="h-4 w-4 text-emerald-400" aria-hidden="true" />}
-                  </button>
+                  </Button>
                 )
               })}
             </div>
           </div>
 
           <form id="analyze-form" onSubmit={onSubmit} className="mt-8 max-w-3xl mx-auto">
-            <div className="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-lg">
+            <Surface tone="raised" border="subtle" padding="none" className="relative overflow-hidden shadow-lg">
               <div className="absolute inset-0 pointer-events-none [mask-image:radial-gradient(50%_50%_at_50%_0%,rgba(255,255,255,.4),transparent_70%)] bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,.08),transparent_40%)]" />
               <div className="relative p-3 md:p-4">
-                <label htmlFor="source-url" className="text-left text-xs text-slate-400 px-1 pb-2">Source URL</label>
+                <label htmlFor="source-url" className="text-left text-xs text-[color:var(--aoi-colors-text-muted)] px-1 pb-2">Source URL</label>
                 <div className="flex flex-col md:flex-row gap-3 items-stretch">
-                  <div className="flex-1 flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 brand-focus-within">
-                    <LinkIcon className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  <div className="flex-1 flex items-center gap-2 rounded-[var(--aoi-radii-control)] border border-[color:var(--aoi-colors-border-subtle)] bg-[color:var(--aoi-colors-surface-strong)]/70 px-3 py-2 focus-ring-within">
+                    <LinkIcon className="h-4 w-4 text-[color:var(--aoi-colors-text-muted)]" aria-hidden="true" />
                     <input
                       id="source-url"
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
                       type="url"
                       placeholder={`Paste ${PLATFORMS.find(p=>p.key===active)?.label} URL (https://...)`}
-                      className="w-full bg-transparent outline-none placeholder:text-slate-500 text-slate-100"
+                      className="w-full bg-transparent text-[color:var(--aoi-colors-text-primary)] outline-none placeholder:text-[color:var(--aoi-colors-text-muted)]"
                       inputMode="url"
                       enterKeyHint="go"
                       autoCapitalize="off"
@@ -398,8 +415,12 @@ export default function App() {
                       spellCheck={false}
                     />
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    size="md"
+                    variant="soft"
+                    className="hover:-translate-y-0.5"
+                    aria-label="Paste from clipboard"
                     onClick={async () => {
                       try {
                         const text = await navigator.clipboard.readText()
@@ -408,57 +429,87 @@ export default function App() {
                         setError('Clipboard permission denied')
                       }
                     }}
-                    aria-label="Paste from clipboard"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 sm:py-2 py-2.5 text-sm font-medium border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 brand-focus transition-all hover:-translate-y-0.5 active:scale-95"
                   >
                     Paste
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
+                    size="md"
+                    variant="primary"
+                    className="hover:-translate-y-0.5"
                     aria-busy={loading}
-                    className={clsx(
-                      'inline-flex items-center justify-center gap-2 rounded-xl px-4 sm:py-2 py-2.5 font-medium transition-all brand-focus',
-                      'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400 bg-[length:200%_200%] text-white shadow-lg hover:shadow-xl hover:shadow-fuchsia-500/30 hover:animate-gradient-x active:scale-95'
-                    )}
                     disabled={loading}
                   >
                     {loading ? (<><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4" aria-hidden="true"/> Analyze</>)}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
-              <div className="relative px-4 pb-4 text-left text-xs text-slate-400">
+              <div className="relative px-4 pb-4 text-left text-xs text-[color:var(--aoi-colors-text-muted)]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Popover.Root>
                     <Popover.Trigger asChild>
-                      <button type="button" className="inline-flex items-center gap-2 text-slate-300 hover:text-white brand-focus rounded px-2 py-1 transition-colors">
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        className="text-[color:var(--aoi-colors-text-secondary)] hover:text-[color:var(--aoi-colors-text-primary)]"
+                      >
                         <Info className="h-3.5 w-3.5" aria-hidden="true"/> Advanced
-                      </button>
+                      </Button>
                     </Popover.Trigger>
-                    <Popover.Content sideOffset={8} className="rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur p-3 text-left text-xs text-slate-300 shadow-xl max-w-sm">
+                    <Popover.Content sideOffset={8} className="rounded-[var(--aoi-radii-control)] border border-[color:var(--aoi-colors-border-subtle)] bg-[color:var(--aoi-colors-surface-strong)]/90 backdrop-blur p-3 text-left text-xs text-[color:var(--aoi-colors-text-secondary)] shadow-xl max-w-sm">
                       <div>For private/age-gated videos, add cookies on the server via <code className="px-1 rounded bg-white/10">AOI_COOKIEFILE</code> or base64 with <code className="px-1 rounded bg-white/10">AOI_COOKIES_BASE64</code>.</div>
                     </Popover.Content>
                   </Popover.Root>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')} className="text-slate-300 hover:text-white underline/30 hover:underline brand-focus rounded px-1">Sample TikTok</button>
-                    <button type="button" onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')} className="text-slate-300 hover:text-white underline/30 hover:underline brand-focus rounded px-1">Sample YouTube</button>
-                    <button type="button" onClick={() => setUrl('https://www.facebook.com/watch/?v=10153231379946729')} className="text-slate-300 hover:text-white underline/30 hover:underline brand-focus rounded px-1">Sample Facebook</button>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="text-[color:var(--aoi-colors-text-secondary)] hover:text-[color:var(--aoi-colors-text-primary)] underline/30 hover:underline"
+                      onClick={() => setUrl('https://www.tiktok.com/@scout2015/video/6718335390845095173')}
+                    >
+                      Sample TikTok
+                    </Button>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="text-[color:var(--aoi-colors-text-secondary)] hover:text-[color:var(--aoi-colors-text-primary)] underline/30 hover:underline"
+                      onClick={() => setUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')}
+                    >
+                      Sample YouTube
+                    </Button>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="text-[color:var(--aoi-colors-text-secondary)] hover:text-[color:var(--aoi-colors-text-primary)] underline/30 hover:underline"
+                      onClick={() => setUrl('https://www.facebook.com/watch/?v=10153231379946729')}
+                    >
+                      Sample Facebook
+                    </Button>
                   </div>
                 </div>
               </div>
-            </div>
+            </Surface>
           </form>
 
           {error && (
-            <div className="mt-4 max-w-3xl mx-auto rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-red-200" role="alert">
-              <div className="font-medium">{error}</div>
-              <ul className="mt-2 text-sm text-red-100/90 list-disc pl-6 space-y-1">
+            <Surface
+              tone="muted"
+              border="none"
+              className="mt-4 max-w-3xl mx-auto border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-left text-rose-100"
+              role="alert"
+            >
+              <div className="font-medium text-rose-50">{error}</div>
+              <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-rose-100/90">
                 {/(private|age|login)/i.test(error) && <li>Content may be private/age-gated. {cookiesOn ? 'Cookies are enabled.' : 'Add cookies to access restricted content.'}</li>}
                 {/403|429|forbidden|quota|rate/i.test(error) && <li>Server may be blocked or rate-limited. Try again later or a different network.</li>}
                 {/not found|format not/i.test(error) && <li>Try a different quality or format.</li>}
                 <li>Ensure the link opens in your browser and is not behind a paywall.</li>
               </ul>
-            </div>
+            </Surface>
           )}
 
           <div className="sr-only" aria-live="polite">{loading ? 'Analyzing URL…' : data ? 'Formats ready' : error ? `Error: ${error}` : ''}</div>
@@ -466,75 +517,101 @@ export default function App() {
 
         {data && (
           <section className="mt-10 grid gap-6 md:grid-cols-[2fr_3fr]">
-            <FadeInUp className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-white/10">
-                <div className="text-sm uppercase tracking-wider text-slate-400 mb-2 inline-flex items-center gap-2"><Video className="h-4 w-4" aria-hidden="true"/> Details</div>
-                <h2 className="text-xl font-semibold text-white inline-flex items-center gap-2">
-                  {(() => { const Icon = platformIconByExtractor(data.extractor); return <Icon className="h-5 w-5 opacity-80" aria-hidden="true"/> })()}
-                  {data.title || 'Untitled'}
-                </h2>
-                <div className="text-slate-400 text-sm mt-1">Duration: {formatDuration(data.duration)}</div>
-              </div>
-              {data.thumbnail && (
-                <img
-                  src={data.thumbnail}
-                  className="w-full max-h-[320px] object-cover"
-                  alt={data.title ? `${data.title} thumbnail` : 'Content thumbnail'}
-                />
-              )}
-              <div className="p-4 text-left text-slate-400 text-sm">
-                <div className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-emerald-400" aria-hidden="true"/> Extractor: {data.extractor}</div>
-                <div className="mt-3">
-                  {data.webpage_url && (
-                    <a href={data.webpage_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-slate-200 hover:bg-white/10 brand-focus">
-                      <ExternalLink className="h-4 w-4" aria-hidden="true"/> Open source page
-                    </a>
-                  )}
+            <FadeInUp className="h-full">
+              <Surface tone="raised" border="subtle" padding="none" className="h-full overflow-hidden">
+                <div className="p-4 border-b border-[color:var(--aoi-colors-border-subtle)]">
+                  <div className="mb-2 inline-flex items-center gap-2 text-sm uppercase tracking-wider text-[color:var(--aoi-colors-text-muted)]"><Video className="h-4 w-4" aria-hidden="true"/> Details</div>
+                  <h2 className="text-xl font-semibold text-[color:var(--aoi-colors-text-primary)] inline-flex items-center gap-2">
+                    {(() => { const Icon = platformIconByExtractor(data.extractor); return <Icon className="h-5 w-5 opacity-80" aria-hidden="true"/> })()}
+                    {data.title || 'Untitled'}
+                  </h2>
+                  <div className="mt-1 text-sm text-[color:var(--aoi-colors-text-muted)]">Duration: {formatDuration(data.duration)}</div>
                 </div>
-              </div>
+                {data.thumbnail && (
+                  <img
+                    src={data.thumbnail}
+                    className="w-full max-h-[320px] object-cover"
+                    alt={data.title ? `${data.title} thumbnail` : 'Content thumbnail'}
+                  />
+                )}
+                <div className="p-4 text-left text-sm text-[color:var(--aoi-colors-text-muted)]">
+                  <div className="inline-flex items-center gap-2 text-[color:var(--aoi-colors-text-secondary)]"><BadgeCheck className="h-4 w-4 text-emerald-400" aria-hidden="true"/> Extractor: {data.extractor}</div>
+                  <div className="mt-3">
+                    {data.webpage_url && (
+                      <Button
+                        as="a"
+                        href={data.webpage_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        size="sm"
+                        variant="soft"
+                        className="justify-start"
+                      >
+                        <ExternalLink className="h-4 w-4" aria-hidden="true"/> Open source page
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Surface>
             </FadeInUp>
 
-            <FadeInUp className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm uppercase tracking-wider text-slate-400 inline-flex items-center gap-2"><Download className="h-4 w-4" aria-hidden="true"/> Download Options</div>
-                <div className="flex items-center gap-2">
-                  {bestHref ? (
-                    <a
-                      href={bestHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
+            <FadeInUp className="h-full">
+              <Surface tone="raised" border="subtle" padding="none" className="h-full overflow-hidden">
+                <div className="p-4 border-b border-[color:var(--aoi-colors-border-subtle)] flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-2 text-sm uppercase tracking-wider text-[color:var(--aoi-colors-text-muted)]"><Download className="h-4 w-4" aria-hidden="true"/> Download Options</div>
+                  <div className="flex items-center gap-2">
+                    {bestHref ? (
+                      <Button
+                        as="a"
+                        href={bestHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        size="sm"
+                        variant="surface"
+                        className="justify-start"
+                      >
+                        <Download className="h-4 w-4" aria-hidden="true"/> Best quality
+                      </Button>
+                    ) : (
+                      <Button
+                        as="span"
+                        size="sm"
+                        variant="soft"
+                        aria-disabled="true"
+                        className="pointer-events-none opacity-60 justify-start"
+                      >
+                        <Download className="h-4 w-4" aria-hidden="true"/> Best quality
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="text-[color:var(--aoi-colors-text-secondary)] hover:text-[color:var(--aoi-colors-text-primary)]"
+                      onClick={() => {
+                        setUrl(data.webpage_url || '')
+                        setData(null)
+                        setError(null)
+                      }}
                     >
-                      <Download className="h-4 w-4" aria-hidden="true"/> Best quality
-                    </a>
-                  ) : (
-                    <span
-                      aria-disabled="true"
-                      className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium border border-white/10 text-slate-400 bg-white/5 pointer-events-none opacity-60"
-                    >
-                      <Download className="h-4 w-4" aria-hidden="true"/> Best quality
-                    </span>
-                  )}
-                  <button onClick={() => { setUrl(data.webpage_url || ''); setData(null); setError(null); }} className="text-slate-300 hover:text-white inline-flex items-center gap-2 text-sm brand-focus rounded px-2 py-1">
-                    <RefreshCw className="h-4 w-4" aria-hidden="true"/> New link
-                  </button>
+                      <RefreshCw className="h-4 w-4" aria-hidden="true"/> New link
+                    </Button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="p-4">
+                <div className="p-4">
                 <Tabs.Root defaultValue={recommended.length > 0 ? 'rec' : 'video'}>
-                  <Tabs.List className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
-                    <Tabs.Trigger value="rec" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 brand-focus transition-colors disabled:opacity-50">
+                  <Tabs.List className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-[color:var(--aoi-colors-border-subtle)] bg-[color:var(--aoi-colors-surface-muted)] p-1">
+                    <Tabs.Trigger value="rec" className="focus-ring px-3 py-1.5 rounded-full text-sm transition-colors data-[state=active]:bg-[color:var(--aoi-colors-surface-strong)] data-[state=active]:text-[color:var(--aoi-colors-text-primary)] text-[color:var(--aoi-colors-text-secondary)] hover:bg-[color:var(--aoi-colors-surface-muted)]/80 disabled:opacity-50">
                       Recommended
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="video" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 brand-focus transition-colors">
+                    <Tabs.Trigger value="video" className="focus-ring px-3 py-1.5 rounded-full text-sm transition-colors data-[state=active]:bg-[color:var(--aoi-colors-surface-strong)] data-[state=active]:text-[color:var(--aoi-colors-text-primary)] text-[color:var(--aoi-colors-text-secondary)] hover:bg-[color:var(--aoi-colors-surface-muted)]/80">
                       Video
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="audio" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 brand-focus transition-colors">
+                    <Tabs.Trigger value="audio" className="focus-ring px-3 py-1.5 rounded-full text-sm transition-colors data-[state=active]:bg-[color:var(--aoi-colors-surface-strong)] data-[state=active]:text-[color:var(--aoi-colors-text-primary)] text-[color:var(--aoi-colors-text-secondary)] hover:bg-[color:var(--aoi-colors-surface-muted)]/80">
                       Audio
                     </Tabs.Trigger>
                     {!!(data?.subtitles?.length) && (
-                      <Tabs.Trigger value="subs" className="px-3 py-1.5 rounded-full text-sm data-[state=active]:bg-white/10 data-[state=active]:text-white text-slate-300 hover:bg-white/5 brand-focus transition-colors">
+                      <Tabs.Trigger value="subs" className="focus-ring px-3 py-1.5 rounded-full text-sm transition-colors data-[state=active]:bg-[color:var(--aoi-colors-surface-strong)] data-[state=active]:text-[color:var(--aoi-colors-text-primary)] text-[color:var(--aoi-colors-text-secondary)] hover:bg-[color:var(--aoi-colors-surface-muted)]/80">
                         Subtitles
                       </Tabs.Trigger>
                     )}
@@ -549,20 +626,20 @@ export default function App() {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-xs text-slate-400">No recommended MP4 found. See other tabs.</div>
+                        <div className="text-xs text-[color:var(--aoi-colors-text-muted)]">No recommended MP4 found. See other tabs.</div>
                       )}
                     </Tabs.Content>
 
                     <Tabs.Content value="video">
-                      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                        <FilterIcon className="h-3.5 w-3.5" aria-hidden="true"/>
-                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.onlyMp4} onChange={e => setPrefs(p => ({ ...p, onlyMp4: e.target.checked }))}/> Only MP4</label>
-                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.onlyMuxed} onChange={e => setPrefs(p => ({ ...p, onlyMuxed: e.target.checked }))}/> Only muxed</label>
-                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.hideStreaming} onChange={e => setPrefs(p => ({ ...p, hideStreaming: e.target.checked }))}/> Hide HLS/DASH</label>
+                      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-[color:var(--aoi-colors-text-secondary)]">
+                        <FilterIcon className="h-3.5 w-3.5 text-[color:var(--aoi-colors-text-muted)]" aria-hidden="true"/>
+                        <ChipToggle checked={prefs.onlyMp4} onCheckedChange={(value) => setPrefs(p => ({ ...p, onlyMp4: value }))}>Only MP4</ChipToggle>
+                        <ChipToggle checked={prefs.onlyMuxed} onCheckedChange={(value) => setPrefs(p => ({ ...p, onlyMuxed: value }))}>Only muxed</ChipToggle>
+                        <ChipToggle checked={prefs.hideStreaming} onCheckedChange={(value) => setPrefs(p => ({ ...p, hideStreaming: value }))}>Hide HLS/DASH</ChipToggle>
                       </div>
                       <div className="grid gap-2 max-h-[60vh] overflow-auto pr-1">
                         {videos.length === 0 ? (
-                          <div className="text-slate-400 text-sm">No video formats found</div>
+                          <div className="text-sm text-[color:var(--aoi-colors-text-muted)]">No video formats found</div>
                         ) : (
                           filteredVideos.map((f) => (
                             <FormatRow key={`v-${f.format_id}`} format={f} source={lastSource} />
@@ -572,13 +649,13 @@ export default function App() {
                     </Tabs.Content>
 
                     <Tabs.Content value="audio">
-                      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                        <FilterIcon className="h-3.5 w-3.5" aria-hidden="true"/>
-                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.hideStreaming} onChange={e => setPrefs(p => ({ ...p, hideStreaming: e.target.checked }))}/> Hide HLS/DASH</label>
+                      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-[color:var(--aoi-colors-text-secondary)]">
+                        <FilterIcon className="h-3.5 w-3.5 text-[color:var(--aoi-colors-text-muted)]" aria-hidden="true"/>
+                        <ChipToggle checked={prefs.hideStreaming} onCheckedChange={(value) => setPrefs(p => ({ ...p, hideStreaming: value }))}>Hide HLS/DASH</ChipToggle>
                       </div>
                       <div className="grid gap-2 max-h-[60vh] overflow-auto pr-1">
                         {audios.length === 0 ? (
-                          <div className="text-slate-400 text-sm">No audio formats found</div>
+                          <div className="text-sm text-[color:var(--aoi-colors-text-muted)]">No audio formats found</div>
                         ) : (
                           filteredAudios.map((f) => (
                             <FormatRow key={`a-${f.format_id}`} format={f} source={lastSource} />
@@ -589,12 +666,12 @@ export default function App() {
 
                     <Tabs.Content value="subs">
                       {!(data?.subtitles?.length) ? (
-                        <div className="text-slate-400 text-sm">No subtitles found</div>
+                        <div className="text-sm text-[color:var(--aoi-colors-text-muted)]">No subtitles found</div>
                       ) : (
                         <div>
-                          <div className="mb-3 flex items-center gap-2 text-xs text-slate-300">
-                            <Languages className="h-3.5 w-3.5" aria-hidden="true"/>
-                            <label className="inline-flex items-center gap-2"><input type="checkbox" checked={showAutoSubs} onChange={e => setShowAutoSubs(e.target.checked)}/> Show auto-captions</label>
+                          <div className="mb-3 flex items-center gap-2 text-xs text-[color:var(--aoi-colors-text-secondary)]">
+                            <Languages className="h-3.5 w-3.5 text-[color:var(--aoi-colors-text-muted)]" aria-hidden="true"/>
+                            <ChipToggle checked={showAutoSubs} onCheckedChange={setShowAutoSubs}>Show auto-captions</ChipToggle>
                           </div>
                           <div className="grid gap-2 max-h-[60vh] overflow-auto pr-1">
                             {Object.entries(
@@ -604,19 +681,27 @@ export default function App() {
                                 return acc
                               }, {})
                             ).map(([lang, entry]) => (
-                              <div key={lang} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2">
-                                <div className="text-sm text-white">{lang}</div>
+                              <Surface
+                                key={lang}
+                                tone="muted"
+                                padding="sm"
+                                className="flex flex-wrap items-center justify-between gap-3"
+                              >
+                                <div className="text-sm text-[color:var(--aoi-colors-text-primary)]">{lang}</div>
                                 <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
                                   {entry.tracks.map((t, idx) => {
                                     if (!lastSource) {
                                       return (
-                                        <span
+                                        <Button
+                                          as="span"
                                           key={`${lang}-${t.ext || 'vtt'}-${idx}`}
+                                          size="xs"
+                                          variant="soft"
                                           aria-disabled="true"
-                                          className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium border border-white/10 text-slate-400 bg-white/5 pointer-events-none opacity-60"
+                                          className="pointer-events-none opacity-60 justify-start"
                                         >
                                           <Download className="h-4 w-4" aria-hidden="true"/> {(t.ext || 'vtt').toUpperCase()} {t.auto ? '(auto)' : ''}
-                                        </span>
+                                        </Button>
                                       )
                                     }
                                     const params = new URLSearchParams()
@@ -626,20 +711,23 @@ export default function App() {
                                     if (t.auto) params.set('auto', '1')
                                     const href = `/api/subtitle?${params.toString()}`
                                     return (
-                                      <a
+                                      <Button
+                                        as="a"
                                         key={`${lang}-${t.ext || 'vtt'}-${idx}`}
                                         href={href}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         download
-                                        className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
+                                        size="xs"
+                                        variant="surface"
+                                        className="justify-start"
                                       >
                                         <Download className="h-4 w-4" aria-hidden="true"/> {(t.ext || 'vtt').toUpperCase()} {t.auto ? '(auto)' : ''}
-                                      </a>
+                                      </Button>
                                     )
                                   })}
                                 </div>
-                              </div>
+                              </Surface>
                             ))}
                           </div>
                         </div>
@@ -648,12 +736,13 @@ export default function App() {
                   </div>
                 </Tabs.Root>
               </div>
-            </FadeInUp>
+            </Surface>
+          </FadeInUp>
           </section>
         )}
 
         {!data && !error && (
-          <div className="mt-10 text-center text-sm text-slate-400">
+          <div className="mt-10 text-center text-sm text-[color:var(--aoi-colors-text-muted)]">
             <div className="inline-flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-hidden="true"/>
               Supports direct downloads for most sites. For HLS/DASH, a compatible player/app may be required.
@@ -661,26 +750,50 @@ export default function App() {
             {!!historyItems.length && (
               <div className="mt-6 text-left max-w-3xl mx-auto">
                 <div className="flex items-center justify-between">
-                  <div className="inline-flex items-center gap-2 text-slate-300"><HistoryIcon className="h-4 w-4" aria-hidden="true"/> Recent</div>
-                  <button onClick={() => { setHistoryItems([]); localStorage.removeItem('aoi:history') }} className="text-xs text-slate-400 hover:text-slate-200">Clear</button>
+                  <div className="inline-flex items-center gap-2 text-[color:var(--aoi-colors-text-secondary)]"><HistoryIcon className="h-4 w-4" aria-hidden="true"/> Recent</div>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="text-[color:var(--aoi-colors-text-muted)] hover:text-[color:var(--aoi-colors-text-primary)]"
+                    onClick={() => {
+                      setHistoryItems([])
+                      localStorage.removeItem('aoi:history')
+                    }}
+                  >
+                    Clear
+                  </Button>
                 </div>
                 <div className="mt-2 grid gap-2">
                   {historyItems.map((h, i) => (
-                    <button key={`${h.url}-${i}`} onClick={() => { setUrl(h.url); setTimeout(() => { const form = document.getElementById('analyze-form') as HTMLFormElement | null; form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })) }, 10) }} className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900/40 p-2 text-left hover:bg-slate-900/60">
+                    <Surface
+                      as="button"
+                      key={`${h.url}-${i}`}
+                      tone="muted"
+                      padding="sm"
+                      interactive
+                      className="flex items-center gap-3 text-left"
+                      onClick={() => {
+                        setUrl(h.url)
+                        setTimeout(() => {
+                          const form = document.getElementById('analyze-form') as HTMLFormElement | null
+                          form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+                        }, 10)
+                      }}
+                    >
                       {h.thumbnail ? (
                         <img
                           src={h.thumbnail}
                           alt={h.title ? `${h.title} thumbnail` : h.url ? `${h.url} thumbnail` : 'Download thumbnail'}
-                          className="h-10 w-16 object-cover rounded"
+                          className="h-12 w-20 object-cover rounded-[var(--aoi-radii-control)]"
                         />
                       ) : (
-                        <div className="h-10 w-16 rounded bg-white/10" />
+                        <div className="h-12 w-20 rounded-[var(--aoi-radii-control)] bg-white/10" />
                       )}
                       <div className="min-w-0">
-                        <div className="truncate text-white text-sm">{h.title || h.url}</div>
-                        <div className="text-xs text-slate-400">{new Date(h.at).toLocaleString()}</div>
+                        <div className="truncate text-[color:var(--aoi-colors-text-primary)] text-sm">{h.title || h.url}</div>
+                        <div className="text-xs text-[color:var(--aoi-colors-text-muted)]">{new Date(h.at).toLocaleString()}</div>
                       </div>
-                    </button>
+                    </Surface>
                   ))}
                 </div>
               </div>
@@ -688,7 +801,7 @@ export default function App() {
           </div>
         )}
 
-        <section className="mt-12 text-center text-xs text-slate-500 pb-[env(safe-area-inset-bottom)]">
+        <section className="mt-12 text-center text-xs text-[color:var(--aoi-colors-text-muted)] pb-[env(safe-area-inset-bottom)]">
           <p>
             Always respect each service's Terms of Service and copyright. Use this tool only for content you own rights to or have permission to download.
           </p>
@@ -765,39 +878,54 @@ function FormatRow({ format, source }: { format: Format, source: string | null }
   }, [source, format.format_id])
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 transition-all hover:-translate-y-0.5">
+    <Surface
+      tone="muted"
+      padding="sm"
+      interactive
+      className="flex flex-wrap items-center justify-between gap-3"
+    >
       <div className="flex items-center gap-3 min-w-0">
-        <div className={clsx('h-9 w-9 grid place-items-center rounded-lg', isAudio ? 'bg-emerald-500/15' : isMuxed ? 'bg-cyan-500/15' : 'bg-purple-500/15')}>
+        <div
+          className={clsx(
+            'grid h-10 w-10 place-items-center rounded-[var(--aoi-radii-control)]',
+            isAudio ? 'bg-emerald-500/15' : isMuxed ? 'bg-cyan-500/15' : 'bg-purple-500/15'
+          )}
+        >
           {isAudio ? <Music2 className="h-4 w-4 text-emerald-400" aria-hidden="true"/> : isMuxed ? <PlayCircle className="h-4 w-4 text-cyan-400" aria-hidden="true"/> : <Video className="h-4 w-4 text-purple-400" aria-hidden="true"/>}
         </div>
         <div className="min-w-0">
-          <div className="text-sm text-white truncate">{quality} {format.fps ? `${format.fps}fps` : ''} {format.ext ? `· ${format.ext}` : ''}</div>
-          <div className="text-xs text-slate-400">{format.filesize_pretty ?? 'Size unknown'}</div>
+          <div className="truncate text-sm text-[color:var(--aoi-colors-text-primary)]">{quality} {format.fps ? `${format.fps}fps` : ''} {format.ext ? `· ${format.ext}` : ''}</div>
+          <div className="text-xs text-[color:var(--aoi-colors-text-muted)]">{format.filesize_pretty ?? 'Size unknown'}</div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
         {protocolLabel && (
-          <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 text-slate-400">{protocolLabel}</span>
+          <span className="rounded-[var(--aoi-radii-pill)] border border-[color:var(--aoi-colors-border-subtle)] px-2 py-0.5 text-[10px] text-[color:var(--aoi-colors-text-muted)]">{protocolLabel}</span>
         )}
         {proxyHref && (
-          <a
+          <Button
+            as="a"
             href={proxyHref}
             target="_blank"
             rel="noopener noreferrer"
             download
-            className="inline-flex items-center gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
+            size="sm"
+            variant="surface"
+            className="justify-start"
           >
             <Download className="h-4 w-4" aria-hidden="true"/> Download
-          </a>
+          </Button>
         )}
         {proxyHref && (
-          <button
+          <Button
             type="button"
+            size="xs"
+            variant="soft"
             onClick={copyLink}
-            className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 brand-focus"
+            className="justify-start"
           >
             <Copy className="h-3.5 w-3.5" aria-hidden="true"/> <span className="hidden sm:inline">Copy link</span><span className="sm:hidden">Copy</span>
-          </button>
+          </Button>
         )}
         {copyStatus === 'success' && (
           <span className="text-[11px] font-medium text-emerald-300">Copied!</span>
@@ -813,12 +941,20 @@ function FormatRow({ format, source }: { format: Format, source: string | null }
             : ''}
         </span>
         {isAudio && mp3Href && (
-          <a href={mp3Href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 brand-focus">
+          <Button
+            as="a"
+            href={mp3Href}
+            target="_blank"
+            rel="noopener noreferrer"
+            size="xs"
+            variant="soft"
+            className="justify-start"
+          >
             <Download className="h-3.5 w-3.5" aria-hidden="true"/> <span className="sm:hidden">MP3</span><span className="hidden sm:inline">MP3</span>
-          </a>
+          </Button>
         )}
       </div>
-    </div>
+    </Surface>
   )
 }
 
