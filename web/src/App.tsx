@@ -17,7 +17,7 @@ const PLATFORMS = [
   { key: 'soundcloud', label: 'SoundCloud', color: 'text-orange-400', icon: Music },
 ]
 
-type Format = {
+export type Format = {
   format_id: string
   ext?: string
   resolution?: string
@@ -65,7 +65,7 @@ async function extract(url: string): Promise<ExtractResponse> {
   return res.json()
 }
 
-function formatDuration(seconds?: number) {
+export function formatDuration(seconds?: number) {
   if (!seconds) return '—'
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
@@ -76,7 +76,7 @@ function formatDuration(seconds?: number) {
     .join(':')
 }
 
-function normalizeInputUrl(raw: string): string | null {
+export function normalizeInputUrl(raw: string): string | null {
   const t = raw.trim()
   if (!t) return null
   try {
@@ -817,7 +817,7 @@ export default function App() {
   )
 }
 
-function FormatRow({ format, source }: { format: Format, source: string | null }) {
+export function FormatRow({ format, source }: { format: Format, source: string | null }) {
   const quality = format.resolution ?? (format.audio_bitrate ? `${format.audio_bitrate}kbps` : '—')
   const isMuxed = format.vcodec && format.acodec && format.vcodec !== 'none' && format.acodec !== 'none'
   const isAudio = format.is_audio_only
