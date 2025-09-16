@@ -23,7 +23,6 @@ describe('App', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch
     localStorage.clear()
     sessionStorage.clear()
-    ;(window as any).__aoi_last_source = undefined
   })
 
   afterEach(() => {
