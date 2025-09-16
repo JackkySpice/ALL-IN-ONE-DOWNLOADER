@@ -95,6 +95,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<ExtractResponse | null>(null)
+  const [lastSource, setLastSource] = useState<string | null>(null)
   const [aborter, setAborter] = useState<AbortController | null>(null)
   const [user, setUser] = useState<{ id: string, email?: string | null, guest: boolean } | null>(null)
   const [authOpen, setAuthOpen] = useState(false)
@@ -105,6 +106,7 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem('aoi:prefs') || '') || { onlyMp4: false, onlyMuxed: true, hideStreaming: true, autoAnalyzeOnShare: true } } catch { return { onlyMp4: false, onlyMuxed: true, hideStreaming: true, autoAnalyzeOnShare: true } }
   })
   const [showAutoSubs, setShowAutoSubs] = useState(false)
+  const platformRefs = React.useRef<(HTMLButtonElement | null)[]>([])
 
   React.useEffect(() => {
     ;(async () => {
@@ -214,7 +216,7 @@ export default function App() {
       const controller = new AbortController()
       setAborter(controller)
       const res = await extract(src)
-      ;(window as any).__aoi_last_source = src
+      setLastSource(src)
       setData(res)
       // Save to history
       try {
@@ -228,16 +230,6 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }
-
-  function bestDownloadHref(): string | undefined {
-    const src = (window as any).__aoi_last_source as string | undefined
-    const pick = (recommended[0] || filteredVideos[0] || filteredAudios[0])
-    if (!src || !pick) return undefined
-    const params = new URLSearchParams()
-    params.set('source', src)
-    params.set('format_id', String(pick.format_id))
-    return `/api/download?${params.toString()}`
   }
 
   function platformIconByExtractor(extractor?: string) {
@@ -259,8 +251,18 @@ export default function App() {
   }
   function onDragOverHandler(ev: React.DragEvent) { ev.preventDefault() }
 
+  const bestHref = useMemo(() => {
+    const src = lastSource
+    const pick = recommended[0] || filteredVideos[0] || filteredAudios[0]
+    if (!src || !pick || !pick.format_id) return undefined
+    const params = new URLSearchParams()
+    params.set('source', src)
+    params.set('format_id', String(pick.format_id))
+    return `/api/download?${params.toString()}`
+  }, [lastSource, recommended, filteredVideos, filteredAudios])
+
   return (
-    <div className="min-h-[100dvh] relative overflow-x-hidden">
+    <div className="min-h-screen min-h-[100dvh] relative overflow-x-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900" />
       <div className="absolute inset-0 bg-grid opacity-[0.30]" />
       <div className="absolute inset-0 bg-noise opacity-[0.06]" />
@@ -270,7 +272,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-cyan-400 grid place-items-center shadow-lg shadow-fuchsia-500/20 glow">
-              <Download className="h-5 w-5 text-white" />
+              <Download className="h-5 w-5 text-white" aria-hidden="true" />
             </div>
             <div>
               <div className="text-white font-semibold tracking-tight">All-In-One Downloader</div>
@@ -278,10 +280,10 @@ export default function App() {
             </div>
           </div>
           <ul className="flex flex-wrap justify-end items-center gap-x-4 gap-y-1 text-slate-300 text-xs sm:text-sm">
-            <li className="inline-flex items-center gap-1 sm:gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400"/> Secure</li>
-            <li className="inline-flex items-center gap-1 sm:gap-2"><Waves className="h-4 w-4 text-cyan-400"/> No ads</li>
-            <li className="inline-flex items-center gap-1 sm:gap-2"><Crown className="h-4 w-4 text-amber-400"/> Free</li>
-            <li className="inline-flex items-center gap-1 sm:gap-2"><Cookie className="h-4 w-4 text-pink-400"/> Cookies: <span className={clsx('font-medium', cookiesOn ? 'text-emerald-300' : 'text-slate-400')}>{cookiesOn == null ? '—' : cookiesOn ? 'On' : 'Off'}</span></li>
+            <li className="inline-flex items-center gap-1 sm:gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400" aria-hidden="true"/> Secure</li>
+            <li className="inline-flex items-center gap-1 sm:gap-2"><Waves className="h-4 w-4 text-cyan-400" aria-hidden="true"/> No ads</li>
+            <li className="inline-flex items-center gap-1 sm:gap-2"><Crown className="h-4 w-4 text-amber-400" aria-hidden="true"/> Free</li>
+            <li className="inline-flex items-center gap-1 sm:gap-2"><Cookie className="h-4 w-4 text-pink-400" aria-hidden="true"/> Cookies: <span className={clsx('font-medium', cookiesOn ? 'text-emerald-300' : 'text-slate-400')}>{cookiesOn == null ? '—' : cookiesOn ? 'On' : 'Off'}</span></li>
             {installPrompt && (
               <li>
                 <button
@@ -322,22 +324,52 @@ export default function App() {
           </p>
 
           <div className="mt-6">
-            <div className="inline-flex flex-wrap items-center justify-center bg-white/5 border border-white/10 rounded-full p-1 gap-1">
-              {PLATFORMS.map((p) => {
+            <div
+              className="inline-flex flex-wrap items-center justify-center bg-white/5 border border-white/10 rounded-full p-1 gap-1"
+              role="tablist"
+              aria-label="Select a platform"
+            >
+              {PLATFORMS.map((p, index) => {
                 const Icon = p.icon
                 const isActive = active === p.key
                 return (
                   <button
                     key={p.key}
+                    ref={(el) => { platformRefs.current[index] = el }}
+                    type="button"
                     onClick={() => setActive(p.key)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                        event.preventDefault()
+                        const direction = event.key === 'ArrowRight' ? 1 : -1
+                        const nextIndex = (index + direction + PLATFORMS.length) % PLATFORMS.length
+                        const nextPlatform = PLATFORMS[nextIndex]
+                        setActive(nextPlatform.key)
+                        platformRefs.current[nextIndex]?.focus()
+                      } else if (event.key === 'Home') {
+                        event.preventDefault()
+                        const nextPlatform = PLATFORMS[0]
+                        setActive(nextPlatform.key)
+                        platformRefs.current[0]?.focus()
+                      } else if (event.key === 'End') {
+                        event.preventDefault()
+                        const lastIndex = PLATFORMS.length - 1
+                        const nextPlatform = PLATFORMS[lastIndex]
+                        setActive(nextPlatform.key)
+                        platformRefs.current[lastIndex]?.focus()
+                      }
+                    }}
+                    role="tab"
+                    aria-selected={isActive}
+                    tabIndex={isActive ? 0 : -1}
                     className={clsx(
                       'inline-flex items-center gap-2 rounded-full px-3 sm:py-1.5 py-2 text-sm transition-all brand-focus hover:-translate-y-0.5',
                       isActive ? 'bg-white/10 text-white shadow-[0_0_0_3px] shadow-fuchsia-500/10' : 'text-slate-300 hover:bg-white/5'
                     )}
                   >
-                    <Icon className={clsx('h-4 w-4', p.color)} />
+                    <Icon className={clsx('h-4 w-4', p.color)} aria-hidden="true" />
                     <span className="font-medium">{p.label}</span>
-                    {isActive && <BadgeCheck className="h-4 w-4 text-emerald-400" />}
+                    {isActive && <BadgeCheck className="h-4 w-4 text-emerald-400" aria-hidden="true" />}
                   </button>
                 )
               })}
@@ -348,15 +380,15 @@ export default function App() {
             <div className="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-lg">
               <div className="absolute inset-0 pointer-events-none [mask-image:radial-gradient(50%_50%_at_50%_0%,rgba(255,255,255,.4),transparent_70%)] bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,.08),transparent_40%)]" />
               <div className="relative p-3 md:p-4">
-                <div className="text-left text-xs text-slate-400 px-1 pb-2">Source URL</div>
+                <label htmlFor="source-url" className="text-left text-xs text-slate-400 px-1 pb-2">Source URL</label>
                 <div className="flex flex-col md:flex-row gap-3 items-stretch">
                   <div className="flex-1 flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 brand-focus-within">
-                    <LinkIcon className="h-4 w-4 text-slate-400" />
+                    <LinkIcon className="h-4 w-4 text-slate-400" aria-hidden="true" />
                     <input
+                      id="source-url"
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
                       type="url"
-                      aria-label="Source URL"
                       placeholder={`Paste ${PLATFORMS.find(p=>p.key===active)?.label} URL (https://...)`}
                       className="w-full bg-transparent outline-none placeholder:text-slate-500 text-slate-100"
                       inputMode="url"
@@ -390,7 +422,7 @@ export default function App() {
                     )}
                     disabled={loading}
                   >
-                    {loading ? (<><Loader2 className="h-4 w-4 animate-spin"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4"/> Analyze</>)}
+                    {loading ? (<><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true"/> Analyzing...</>) : (<><Sparkles className="h-4 w-4" aria-hidden="true"/> Analyze</>)}
                   </button>
                 </div>
               </div>
@@ -400,7 +432,7 @@ export default function App() {
                   <Popover.Root>
                     <Popover.Trigger asChild>
                       <button type="button" className="inline-flex items-center gap-2 text-slate-300 hover:text-white brand-focus rounded px-2 py-1 transition-colors">
-                        <Info className="h-3.5 w-3.5"/> Advanced
+                        <Info className="h-3.5 w-3.5" aria-hidden="true"/> Advanced
                       </button>
                     </Popover.Trigger>
                     <Popover.Content sideOffset={8} className="rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur p-3 text-left text-xs text-slate-300 shadow-xl max-w-sm">
@@ -436,22 +468,26 @@ export default function App() {
           <section className="mt-10 grid gap-6 md:grid-cols-[2fr_3fr]">
             <FadeInUp className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-white/10">
-                <div className="text-sm uppercase tracking-wider text-slate-400 mb-2 inline-flex items-center gap-2"><Video className="h-4 w-4"/> Details</div>
+                <div className="text-sm uppercase tracking-wider text-slate-400 mb-2 inline-flex items-center gap-2"><Video className="h-4 w-4" aria-hidden="true"/> Details</div>
                 <h2 className="text-xl font-semibold text-white inline-flex items-center gap-2">
-                  {(() => { const Icon = platformIconByExtractor(data.extractor); return <Icon className="h-5 w-5 opacity-80"/> })()}
+                  {(() => { const Icon = platformIconByExtractor(data.extractor); return <Icon className="h-5 w-5 opacity-80" aria-hidden="true"/> })()}
                   {data.title || 'Untitled'}
                 </h2>
                 <div className="text-slate-400 text-sm mt-1">Duration: {formatDuration(data.duration)}</div>
               </div>
               {data.thumbnail && (
-                <img src={data.thumbnail} className="w-full max-h-[320px] object-cover" alt="thumbnail" />
+                <img
+                  src={data.thumbnail}
+                  className="w-full max-h-[320px] object-cover"
+                  alt={data.title ? `${data.title} thumbnail` : 'Content thumbnail'}
+                />
               )}
               <div className="p-4 text-left text-slate-400 text-sm">
-                <div className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-emerald-400"/> Extractor: {data.extractor}</div>
+                <div className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-emerald-400" aria-hidden="true"/> Extractor: {data.extractor}</div>
                 <div className="mt-3">
                   {data.webpage_url && (
                     <a href={data.webpage_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-slate-200 hover:bg-white/10 brand-focus">
-                      <ExternalLink className="h-4 w-4"/> Open source page
+                      <ExternalLink className="h-4 w-4" aria-hidden="true"/> Open source page
                     </a>
                   )}
                 </div>
@@ -460,18 +496,27 @@ export default function App() {
 
             <FadeInUp className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm uppercase tracking-wider text-slate-400 inline-flex items-center gap-2"><Download className="h-4 w-4"/> Download Options</div>
+                <div className="text-sm uppercase tracking-wider text-slate-400 inline-flex items-center gap-2"><Download className="h-4 w-4" aria-hidden="true"/> Download Options</div>
                 <div className="flex items-center gap-2">
-                  <a
-                    href={bestDownloadHref()}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
-                  >
-                    <Download className="h-4 w-4"/> Best quality
-                  </a>
+                  {bestHref ? (
+                    <a
+                      href={bestHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
+                    >
+                      <Download className="h-4 w-4" aria-hidden="true"/> Best quality
+                    </a>
+                  ) : (
+                    <span
+                      aria-disabled="true"
+                      className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium border border-white/10 text-slate-400 bg-white/5 pointer-events-none opacity-60"
+                    >
+                      <Download className="h-4 w-4" aria-hidden="true"/> Best quality
+                    </span>
+                  )}
                   <button onClick={() => { setUrl(data.webpage_url || ''); setData(null); setError(null); }} className="text-slate-300 hover:text-white inline-flex items-center gap-2 text-sm brand-focus rounded px-2 py-1">
-                  <RefreshCw className="h-4 w-4"/> New link
+                    <RefreshCw className="h-4 w-4" aria-hidden="true"/> New link
                   </button>
                 </div>
               </div>
@@ -500,7 +545,7 @@ export default function App() {
                       {recommended.length > 0 ? (
                         <div className="grid gap-2">
                           {recommended.slice(0, 4).map((f) => (
-                            <FormatRow key={`rec-${f.format_id}`} format={f} />
+                            <FormatRow key={`rec-${f.format_id}`} format={f} source={lastSource} />
                           ))}
                         </div>
                       ) : (
@@ -510,7 +555,7 @@ export default function App() {
 
                     <Tabs.Content value="video">
                       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                        <FilterIcon className="h-3.5 w-3.5"/>
+                        <FilterIcon className="h-3.5 w-3.5" aria-hidden="true"/>
                         <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.onlyMp4} onChange={e => setPrefs(p => ({ ...p, onlyMp4: e.target.checked }))}/> Only MP4</label>
                         <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.onlyMuxed} onChange={e => setPrefs(p => ({ ...p, onlyMuxed: e.target.checked }))}/> Only muxed</label>
                         <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.hideStreaming} onChange={e => setPrefs(p => ({ ...p, hideStreaming: e.target.checked }))}/> Hide HLS/DASH</label>
@@ -520,7 +565,7 @@ export default function App() {
                           <div className="text-slate-400 text-sm">No video formats found</div>
                         ) : (
                           filteredVideos.map((f) => (
-                            <FormatRow key={`v-${f.format_id}`} format={f} />
+                            <FormatRow key={`v-${f.format_id}`} format={f} source={lastSource} />
                           ))
                         )}
                       </div>
@@ -528,7 +573,7 @@ export default function App() {
 
                     <Tabs.Content value="audio">
                       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                        <FilterIcon className="h-3.5 w-3.5"/>
+                        <FilterIcon className="h-3.5 w-3.5" aria-hidden="true"/>
                         <label className="inline-flex items-center gap-2"><input type="checkbox" checked={prefs.hideStreaming} onChange={e => setPrefs(p => ({ ...p, hideStreaming: e.target.checked }))}/> Hide HLS/DASH</label>
                       </div>
                       <div className="grid gap-2 max-h-[60vh] overflow-auto pr-1">
@@ -536,7 +581,7 @@ export default function App() {
                           <div className="text-slate-400 text-sm">No audio formats found</div>
                         ) : (
                           filteredAudios.map((f) => (
-                            <FormatRow key={`a-${f.format_id}`} format={f} />
+                            <FormatRow key={`a-${f.format_id}`} format={f} source={lastSource} />
                           ))
                         )}
                       </div>
@@ -548,7 +593,7 @@ export default function App() {
                       ) : (
                         <div>
                           <div className="mb-3 flex items-center gap-2 text-xs text-slate-300">
-                            <Languages className="h-3.5 w-3.5"/>
+                            <Languages className="h-3.5 w-3.5" aria-hidden="true"/>
                             <label className="inline-flex items-center gap-2"><input type="checkbox" checked={showAutoSubs} onChange={e => setShowAutoSubs(e.target.checked)}/> Show auto-captions</label>
                           </div>
                           <div className="grid gap-2 max-h-[60vh] overflow-auto pr-1">
@@ -563,18 +608,33 @@ export default function App() {
                                 <div className="text-sm text-white">{lang}</div>
                                 <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
                                   {entry.tracks.map((t, idx) => {
-                                    const u = new URLSearchParams()
-                                    const src = (window as any).__aoi_last_source as string | undefined
-                                    if (src) {
-                                      u.set('source', src)
-                                      u.set('lang', lang)
-                                      if (t.ext) u.set('ext', String(t.ext))
-                                      if (t.auto) u.set('auto', '1')
+                                    if (!lastSource) {
+                                      return (
+                                        <span
+                                          key={`${lang}-${t.ext || 'vtt'}-${idx}`}
+                                          aria-disabled="true"
+                                          className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium border border-white/10 text-slate-400 bg-white/5 pointer-events-none opacity-60"
+                                        >
+                                          <Download className="h-4 w-4" aria-hidden="true"/> {(t.ext || 'vtt').toUpperCase()} {t.auto ? '(auto)' : ''}
+                                        </span>
+                                      )
                                     }
-                                    const href = src ? `/api/subtitle?${u.toString()}` : undefined
+                                    const params = new URLSearchParams()
+                                    params.set('source', lastSource)
+                                    params.set('lang', lang)
+                                    if (t.ext) params.set('ext', String(t.ext))
+                                    if (t.auto) params.set('auto', '1')
+                                    const href = `/api/subtitle?${params.toString()}`
                                     return (
-                                      <a key={`${lang}-${t.ext || 'vtt'}-${idx}`} href={href} target="_blank" rel="noopener noreferrer" download className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus">
-                                        <Download className="h-4 w-4"/> {(t.ext || 'vtt').toUpperCase()} {t.auto ? '(auto)' : ''}
+                                      <a
+                                        key={`${lang}-${t.ext || 'vtt'}-${idx}`}
+                                        href={href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        download
+                                        className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
+                                      >
+                                        <Download className="h-4 w-4" aria-hidden="true"/> {(t.ext || 'vtt').toUpperCase()} {t.auto ? '(auto)' : ''}
                                       </a>
                                     )
                                   })}
@@ -595,19 +655,27 @@ export default function App() {
         {!data && !error && (
           <div className="mt-10 text-center text-sm text-slate-400">
             <div className="inline-flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400"/>
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-hidden="true"/>
               Supports direct downloads for most sites. For HLS/DASH, a compatible player/app may be required.
             </div>
             {!!historyItems.length && (
               <div className="mt-6 text-left max-w-3xl mx-auto">
                 <div className="flex items-center justify-between">
-                  <div className="inline-flex items-center gap-2 text-slate-300"><HistoryIcon className="h-4 w-4"/> Recent</div>
+                  <div className="inline-flex items-center gap-2 text-slate-300"><HistoryIcon className="h-4 w-4" aria-hidden="true"/> Recent</div>
                   <button onClick={() => { setHistoryItems([]); localStorage.removeItem('aoi:history') }} className="text-xs text-slate-400 hover:text-slate-200">Clear</button>
                 </div>
                 <div className="mt-2 grid gap-2">
                   {historyItems.map((h, i) => (
                     <button key={`${h.url}-${i}`} onClick={() => { setUrl(h.url); setTimeout(() => { const form = document.getElementById('analyze-form') as HTMLFormElement | null; form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })) }, 10) }} className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900/40 p-2 text-left hover:bg-slate-900/60">
-                      {h.thumbnail ? (<img src={h.thumbnail} alt="thumb" className="h-10 w-16 object-cover rounded"/>) : (<div className="h-10 w-16 rounded bg-white/10" />)}
+                      {h.thumbnail ? (
+                        <img
+                          src={h.thumbnail}
+                          alt={h.title ? `${h.title} thumbnail` : h.url ? `${h.url} thumbnail` : 'Download thumbnail'}
+                          className="h-10 w-16 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="h-10 w-16 rounded bg-white/10" />
+                      )}
                       <div className="min-w-0">
                         <div className="truncate text-white text-sm">{h.title || h.url}</div>
                         <div className="text-xs text-slate-400">{new Date(h.at).toLocaleString()}</div>
@@ -636,7 +704,7 @@ export default function App() {
   )
 }
 
-function FormatRow({ format }: { format: Format }) {
+function FormatRow({ format, source }: { format: Format, source: string | null }) {
   const quality = format.resolution ?? (format.audio_bitrate ? `${format.audio_bitrate}kbps` : '—')
   const isMuxed = format.vcodec && format.acodec && format.vcodec !== 'none' && format.acodec !== 'none'
   const isAudio = format.is_audio_only
@@ -651,37 +719,56 @@ function FormatRow({ format }: { format: Format }) {
   // Build proxy link to preserve headers compatibility
   const proxyHref = useMemo(() => {
     const urlParams = new URLSearchParams()
-    // Use current analyzed URL as source
-    const current = (window as any).__aoi_last_source as string | undefined
-    if (current && format.format_id) {
-      urlParams.set('source', current)
+    if (source && format.format_id) {
+      urlParams.set('source', source)
       urlParams.set('format_id', String(format.format_id))
       return `/api/download?${urlParams.toString()}`
     }
     return format.direct_url ?? undefined
-  }, [format.format_id, format.direct_url])
+  }, [source, format.format_id, format.direct_url])
+
+  const [copyStatus, setCopyStatus] = React.useState<'idle' | 'success' | 'error'>('idle')
+  const copyTimeoutRef = React.useRef<number | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current != null) {
+        window.clearTimeout(copyTimeoutRef.current)
+      }
+    }
+  }, [])
 
   async function copyLink() {
+    if (!proxyHref) return
     try {
-      if (!proxyHref) return
       await navigator.clipboard.writeText(proxyHref)
-    } catch {}
+      setCopyStatus('success')
+    } catch {
+      setCopyStatus('error')
+    }
+
+    if (copyTimeoutRef.current != null) {
+      window.clearTimeout(copyTimeoutRef.current)
+    }
+    copyTimeoutRef.current = window.setTimeout(() => {
+      setCopyStatus('idle')
+      copyTimeoutRef.current = null
+    }, 2000)
   }
 
   const mp3Href = useMemo(() => {
-    const current = (window as any).__aoi_last_source as string | undefined
-    if (!current) return undefined
+    if (!source) return undefined
     const params = new URLSearchParams()
-    params.set('source', current)
+    params.set('source', source)
     if (format.format_id) params.set('format_id', String(format.format_id))
     return `/api/convert_mp3?${params.toString()}`
-  }, [format.format_id])
+  }, [source, format.format_id])
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 transition-all hover:-translate-y-0.5">
       <div className="flex items-center gap-3 min-w-0">
         <div className={clsx('h-9 w-9 grid place-items-center rounded-lg', isAudio ? 'bg-emerald-500/15' : isMuxed ? 'bg-cyan-500/15' : 'bg-purple-500/15')}>
-          {isAudio ? <Music2 className="h-4 w-4 text-emerald-400"/> : isMuxed ? <PlayCircle className="h-4 w-4 text-cyan-400"/> : <Video className="h-4 w-4 text-purple-400"/>}
+          {isAudio ? <Music2 className="h-4 w-4 text-emerald-400" aria-hidden="true"/> : isMuxed ? <PlayCircle className="h-4 w-4 text-cyan-400" aria-hidden="true"/> : <Video className="h-4 w-4 text-purple-400" aria-hidden="true"/>}
         </div>
         <div className="min-w-0">
           <div className="text-sm text-white truncate">{quality} {format.fps ? `${format.fps}fps` : ''} {format.ext ? `· ${format.ext}` : ''}</div>
@@ -700,17 +787,34 @@ function FormatRow({ format }: { format: Format }) {
             download
             className="inline-flex items-center gap-2 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium bg-white/10 hover:bg-white/15 border border-white/10 text-white brand-focus"
           >
-            <Download className="h-4 w-4"/> Download
+            <Download className="h-4 w-4" aria-hidden="true"/> Download
           </a>
         )}
         {proxyHref && (
-          <button onClick={copyLink} className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 brand-focus">
-            <Copy className="h-3.5 w-3.5"/> <span className="hidden sm:inline">Copy link</span><span className="sm:hidden">Copy</span>
+          <button
+            type="button"
+            onClick={copyLink}
+            className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 brand-focus"
+          >
+            <Copy className="h-3.5 w-3.5" aria-hidden="true"/> <span className="hidden sm:inline">Copy link</span><span className="sm:hidden">Copy</span>
           </button>
         )}
-        {isAudio && (
+        {copyStatus === 'success' && (
+          <span className="text-[11px] font-medium text-emerald-300">Copied!</span>
+        )}
+        {copyStatus === 'error' && (
+          <span className="text-[11px] font-medium text-rose-300">Copy failed</span>
+        )}
+        <span className="sr-only" aria-live="polite">
+          {copyStatus === 'success'
+            ? 'Download link copied to clipboard'
+            : copyStatus === 'error'
+            ? 'Failed to copy download link'
+            : ''}
+        </span>
+        {isAudio && mp3Href && (
           <a href={mp3Href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 brand-focus">
-            <Download className="h-3.5 w-3.5"/> <span className="sm:hidden">MP3</span><span className="hidden sm:inline">MP3</span>
+            <Download className="h-3.5 w-3.5" aria-hidden="true"/> <span className="sm:hidden">MP3</span><span className="hidden sm:inline">MP3</span>
           </a>
         )}
       </div>
