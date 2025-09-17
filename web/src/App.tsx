@@ -278,7 +278,7 @@ export default function App() {
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900" />
       <div className="absolute inset-0 bg-grid opacity-[0.30]" />
       <div className="absolute inset-0 bg-noise opacity-[0.06]" />
-      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-80 w-[40rem] rounded-full blur-3xl bg-gradient-to-r from-fuchsia-500/20 via-purple-500/20 to-cyan-400/20" />
+      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-64 sm:h-80 w-[40rem] max-w-[calc(100vw-2rem)] rounded-full blur-3xl bg-gradient-to-r from-fuchsia-500/20 via-purple-500/20 to-cyan-400/20" />
 
       <header className="relative z-10 sticky top-0 backdrop-blur border-b border-[color:var(--aoi-colors-border-subtle)] bg-[color:var(--aoi-colors-background)]/85 pt-[env(safe-area-inset-top)]">
         <div className="max-w-screen-content mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">

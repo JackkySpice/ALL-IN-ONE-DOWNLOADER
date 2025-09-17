@@ -154,8 +154,8 @@ export default function AuthModal({ open, onClose, onAuthSuccess }: Props) {
       <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       {/* Decorative circles */}
-      <div className="pointer-events-none absolute -top-16 -left-10 h-48 w-48 rounded-full blur-3xl bg-gradient-to-br from-fuchsia-500/30 via-purple-500/30 to-cyan-400/30" aria-hidden="true" />
-      <div className="pointer-events-none absolute -bottom-16 -right-10 h-48 w-48 rounded-full blur-3xl bg-gradient-to-tr from-cyan-400/30 via-purple-500/30 to-fuchsia-500/30" aria-hidden="true" />
+      <div className="pointer-events-none absolute -top-16 left-0 sm:-left-10 h-40 w-40 sm:h-48 sm:w-48 rounded-full blur-3xl bg-gradient-to-br from-fuchsia-500/30 via-purple-500/30 to-cyan-400/30" aria-hidden="true" />
+      <div className="pointer-events-none absolute -bottom-16 right-0 sm:-right-10 h-40 w-40 sm:h-48 sm:w-48 rounded-full blur-3xl bg-gradient-to-tr from-cyan-400/30 via-purple-500/30 to-fuchsia-500/30" aria-hidden="true" />
 
       <div
         ref={contentRef}
