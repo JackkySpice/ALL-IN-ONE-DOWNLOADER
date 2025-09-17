@@ -106,7 +106,7 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [historyItems, setHistoryItems] = useState<{ url: string, title?: string | null, extractor?: string | null, thumbnail?: string | null, at: number }[]>([])
   const [prefs, setPrefs] = useState<{ onlyMp4: boolean, onlyMuxed: boolean, hideStreaming: boolean, autoAnalyzeOnShare: boolean }>(() => {
-    try { return JSON.parse(localStorage.getItem('aoi:prefs') || '') || { onlyMp4: false, onlyMuxed: true, hideStreaming: true, autoAnalyzeOnShare: true } } catch { return { onlyMp4: false, onlyMuxed: true, hideStreaming: true, autoAnalyzeOnShare: true } }
+    try { return JSON.parse(localStorage.getItem('aoi:prefs') || '') || { onlyMp4: false, onlyMuxed: false, hideStreaming: false, autoAnalyzeOnShare: true } } catch { return { onlyMp4: false, onlyMuxed: false, hideStreaming: false, autoAnalyzeOnShare: true } }
   })
   const [showAutoSubs, setShowAutoSubs] = useState(false)
   const platformRefs = React.useRef<(HTMLButtonElement | null)[]>([])
