@@ -894,9 +894,9 @@ export function FormatRow({ format, source }: { format: Format, source: string |
       tone="muted"
       padding="sm"
       interactive
-      className="flex flex-wrap items-center justify-between gap-3"
+      className="flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
     >
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex w-full items-center gap-3 min-w-0 sm:w-auto">
         <div
           className={clsx(
             'grid h-10 w-10 place-items-center rounded-[var(--aoi-radii-control)]',
