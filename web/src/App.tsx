@@ -466,7 +466,10 @@ export default function App() {
                         <Info className="h-3.5 w-3.5" aria-hidden="true"/> Advanced
                       </Button>
                     </Popover.Trigger>
-                    <Popover.Content sideOffset={8} className="rounded-[var(--aoi-radii-control)] border border-[color:var(--aoi-colors-border-subtle)] bg-[color:var(--aoi-colors-surface-strong)]/90 backdrop-blur p-3 text-left text-xs text-[color:var(--aoi-colors-text-secondary)] shadow-xl max-w-sm">
+                    <Popover.Content
+                      sideOffset={8}
+                      className="rounded-[var(--aoi-radii-control)] border border-[color:var(--aoi-colors-border-subtle)] bg-[color:var(--aoi-colors-surface-strong)]/90 backdrop-blur p-3 text-left text-xs text-[color:var(--aoi-colors-text-secondary)] shadow-xl max-w-[calc(100vw-2rem)] sm:max-w-sm"
+                    >
                       <div>For private/age-gated videos, add cookies on the server via <code className="px-1 rounded bg-white/10">AOI_COOKIEFILE</code> or base64 with <code className="px-1 rounded bg-white/10">AOI_COOKIES_BASE64</code>.</div>
                     </Popover.Content>
                   </Popover.Root>
