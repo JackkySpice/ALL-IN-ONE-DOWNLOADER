@@ -689,11 +689,9 @@ async def proxy_download(request: Request, source: str, format_id: str):
 
     # If we hit common anti-bot statuses, retry with curl_cffi (Chrome impersonation)
     if upstream_status in {401, 403, 405, 409, 410, 412, 418, 421, 429, 451} and curl_requests:
+        sess = None
+        curl_resp = None
         try:
-            # Close httpx stream before retry
-            await resp.aclose()
-            await client.aclose()
-
             impersonate = os.getenv("AOI_IMPERSONATE", "chrome")
             # curl_cffi is synchronous; wrap its streaming in an async generator
             sess = curl_requests.Session()
@@ -738,9 +736,16 @@ async def proxy_download(request: Request, source: str, format_id: str):
                 finally:
                     try:
                         curl_resp.close()
-                        sess.close()
-                    except Exception:
-                        pass
+                    finally:
+                        if sess is not None:
+                            try:
+                                sess.close()
+                            except Exception:
+                                pass
+
+            # Switch to curl stream; original httpx response is no longer needed
+            await resp.aclose()
+            await client.aclose()
 
             return StreamingResponse(
                 curl_body_iter(),
@@ -749,6 +754,16 @@ async def proxy_download(request: Request, source: str, format_id: str):
                 status_code=curl_resp.status_code,
             )
         except Exception:
+            if curl_resp is not None:
+                try:
+                    curl_resp.close()
+                except Exception:
+                    pass
+            if sess is not None:
+                try:
+                    sess.close()
+                except Exception:
+                    pass
             # Fall back to original resp below
             pass
 
@@ -969,6 +984,15 @@ async def convert_mp3(request: Request, source: str, format_id: Optional[str] = 
                     proc.kill()
             except Exception:
                 pass
+            try:
+                await proc.wait()
+            except Exception:
+                pass
+            if proc.stderr is not None:
+                try:
+                    await proc.stderr.read()
+                except Exception:
+                    pass
 
     response_headers = {
         "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
