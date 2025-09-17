@@ -1,6 +1,6 @@
 import asyncio
-import types
-from typing import Any, Dict, List, Optional
+from http.cookiejar import Cookie, CookieJar
+from typing import Any, Dict, List
 
 import pytest
 from fastapi.testclient import TestClient
@@ -118,8 +118,34 @@ def mock_extract(monkeypatch):
         assert "http" in url
         return _fake_info_single()
 
+    async def fake_extract_with_cookiejar(url: str, ydl_opts: dict):
+        return _fake_info_single(), None
+
     monkeypatch.setattr(main, "_extract_info_threaded", fake_extract)
+    monkeypatch.setattr(main, "_extract_info_with_cookiejar", fake_extract_with_cookiejar)
     return fake_extract
+
+
+def _make_cookie(name: str, value: str, domain: str) -> Cookie:
+    return Cookie(
+        version=0,
+        name=name,
+        value=value,
+        port=None,
+        port_specified=False,
+        domain=domain,
+        domain_specified=True,
+        domain_initial_dot=domain.startswith("."),
+        path="/",
+        path_specified=True,
+        secure=False,
+        expires=None,
+        discard=True,
+        comment=None,
+        comment_url=None,
+        rest={},
+        rfc2109=False,
+    )
 
 
 def test_extract_returns_formats_and_subtitles(client: TestClient, mock_extract):
@@ -174,23 +200,14 @@ def test_proxy_download_streams_and_headers(monkeypatch, client: TestClient, moc
 
     monkeypatch.setattr(main.httpx, "AsyncClient", FakeClient)
 
-    # Prevent real yt-dlp usage inside /api/download by faking YoutubeDL
-    class FakeYDL:
-        def __init__(self, opts=None):
-            self.opts = opts or {}
-            self.cookiejar = []
+    cookiejar = CookieJar()
+    cookiejar.set_cookie(_make_cookie("session", "abc==", ".cdn.example.com"))
+    cookiejar.set_cookie(_make_cookie("alt", "plus+value", ".cdn.example.com"))
 
-        def __enter__(self):
-            return self
+    async def fake_extract_with_cookiejar(url: str, ydl_opts: dict):
+        return _fake_info_single(), cookiejar
 
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def extract_info(self, source: str, download: bool = False):
-            return _fake_info_single()
-
-    # Patch the YoutubeDL class on the module imported as youtube_dl
-    monkeypatch.setattr(main.youtube_dl, "YoutubeDL", FakeYDL)
+    monkeypatch.setattr(main, "_extract_info_with_cookiejar", fake_extract_with_cookiejar)
 
     params = {
         "source": "https://example.com/watch?v=abc123",
@@ -203,6 +220,8 @@ def test_proxy_download_streams_and_headers(monkeypatch, client: TestClient, moc
     # Range forwarded upstream
     assert captured["headers"]["Range"] == "bytes=0-3"
     assert captured["url"].startswith("https://cdn.example.com/")
+    assert captured["headers"].get("Cookie") == "session=abc==; alt=plus+value"
+    assert "%" not in captured["headers"].get("Cookie", "")
     assert r.content == b"test"
 
 
@@ -269,10 +288,23 @@ def test_convert_mp3_streams(monkeypatch, client: TestClient, mock_extract):
         def kill(self):
             self.returncode = 0
 
+    captured_cmd: Dict[str, Any] = {}
+
     async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_cmd["args"] = args
+        captured_cmd["kwargs"] = kwargs
         return FakeProc()
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    cookiejar = CookieJar()
+    cookiejar.set_cookie(_make_cookie("session", "abc==", ".cdn.example.com"))
+    cookiejar.set_cookie(_make_cookie("alt", "plus+value", ".cdn.example.com"))
+
+    async def fake_extract_with_cookiejar(url: str, ydl_opts: dict):
+        return _fake_info_single(), cookiejar
+
+    monkeypatch.setattr(main, "_extract_info_with_cookiejar", fake_extract_with_cookiejar)
 
     r = client.get(
         "/api/convert_mp3",
@@ -282,6 +314,10 @@ def test_convert_mp3_streams(monkeypatch, client: TestClient, mock_extract):
     assert r.headers["Content-Type"] == "audio/mpeg"
     assert "attachment; filename*=" in r.headers["Content-Disposition"]
     assert r.content.startswith(b"ID3")
+    header_index = captured_cmd["args"].index("-headers")
+    header_value = captured_cmd["args"][header_index + 1]
+    assert "Cookie: session=abc==; alt=plus+value" in header_value
+    assert "%" not in header_value
 
 
 def test_cookies_status(monkeypatch, client: TestClient, tmp_path):
