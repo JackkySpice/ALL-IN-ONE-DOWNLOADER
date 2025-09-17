@@ -162,6 +162,12 @@ def test_extract_returns_formats_and_subtitles(client: TestClient, mock_extract)
     assert any(s["lang"] == "en" for s in data.get("subtitles", []))
 
 
+def test_extract_rejects_invalid_scheme(client: TestClient):
+    r = client.post("/api/extract", json={"url": "file:///etc/passwd"})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Invalid source URL; must be http(s)"
+
+
 def test_proxy_download_streams_and_headers(monkeypatch, client: TestClient, mock_extract):
     import server.main as main
 

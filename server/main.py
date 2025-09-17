@@ -436,6 +436,10 @@ async def extract_media(req: ExtractRequest):
     if not req.url:
         raise HTTPException(status_code=400, detail="Missing url")
 
+    parsed = urlparse(req.url)
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+        raise HTTPException(status_code=400, detail="Invalid source URL; must be http(s)")
+
     # First attempt with default options
     try:
         info = await _extract_info_threaded(req.url, build_ydl_opts(req.url))

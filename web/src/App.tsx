@@ -43,11 +43,12 @@ type ExtractResponse = {
   subtitles?: { lang: string, ext?: string | null, url?: string | null, auto?: boolean }[]
 }
 
-async function extract(url: string): Promise<ExtractResponse> {
+async function extract(url: string, signal?: AbortSignal): Promise<ExtractResponse> {
   const res = await fetch('/api/extract', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url })
+    body: JSON.stringify({ url }),
+    signal,
   })
   if (!res.ok) {
     let message = 'Extraction failed'
@@ -141,7 +142,11 @@ export default function App() {
   }, [])
 
   React.useEffect(() => {
-    localStorage.setItem('aoi:prefs', JSON.stringify(prefs))
+    try {
+      localStorage.setItem('aoi:prefs', JSON.stringify(prefs))
+    } catch (err) {
+      console.warn('Failed to persist preferences to localStorage', err)
+    }
   }, [prefs])
 
   React.useEffect(() => {
@@ -218,7 +223,7 @@ export default function App() {
       aborter?.abort()
       const controller = new AbortController()
       setAborter(controller)
-      const res = await extract(src)
+      const res = await extract(src, controller.signal)
       setLastSource(src)
       setData(res)
       // Save to history
@@ -229,9 +234,13 @@ export default function App() {
         localStorage.setItem('aoi:history', JSON.stringify(next))
       } catch {}
     } catch (err: any) {
+      if (err?.name === 'AbortError' || err?.code === 20) {
+        return
+      }
       setError(err?.message ?? 'Failed to extract')
     } finally {
       setLoading(false)
+      setAborter(null)
     }
   }
 
