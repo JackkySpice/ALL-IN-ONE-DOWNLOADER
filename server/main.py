@@ -369,13 +369,61 @@ def build_ydl_opts(
     return ydl_opts
 
 
-async def _extract_info_threaded(url: str, ydl_opts: dict) -> dict:
-    """Run ydl.extract_info in a worker thread to avoid blocking the event loop."""
-    def _sync_extract() -> dict:
+async def _extract_info_with_cookiejar(url: str, ydl_opts: dict):
+    """Run extraction and return both info dict and the underlying cookie jar."""
+
+    def _sync_extract():
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(url, download=False)
+            info = ydl.extract_info(url, download=False)
+            cookiejar = None
+            try:
+                cookiejar = getattr(ydl, "cookiejar", None)
+            except Exception:
+                cookiejar = None
+            return info, cookiejar
 
     return await anyio.to_thread.run_sync(_sync_extract)
+
+
+async def _extract_info_threaded(url: str, ydl_opts: dict) -> dict:
+    """Run ydl.extract_info in a worker thread to avoid blocking the event loop."""
+    info, _ = await _extract_info_with_cookiejar(url, ydl_opts)
+    return info
+
+
+def _merge_extracted_cookies(headers: dict, info: dict, cookiejar, direct_url: Optional[str]) -> None:
+    """Populate headers with cookies from info or the extracted cookie jar."""
+
+    if not direct_url:
+        return
+
+    try:
+        parsed_direct = urlparse(direct_url)
+        host = parsed_direct.hostname
+        if not host:
+            return
+
+        cookie_from_info = (info.get("http_headers") or {}).get("Cookie")
+        if cookie_from_info:
+            headers.setdefault("Cookie", cookie_from_info)
+            return
+
+        cj = cookiejar
+        if not cj:
+            return
+
+        cookie_pairs = []
+        for c in cj:
+            if not getattr(c, "domain", None):
+                continue
+            dom = c.domain.lstrip(".")
+            if dom and "." in dom and (host == dom or host.endswith("." + dom)):
+                cookie_pairs.append(f"{c.name}={c.value}")
+
+        if cookie_pairs and "Cookie" not in headers:
+            headers["Cookie"] = "; ".join(cookie_pairs)
+    except Exception:
+        pass
 
 
 @app.get("/api/health")
@@ -550,17 +598,9 @@ async def proxy_download(request: Request, source: str, format_id: str):
     # Re-extract to get fresh format URL and headers, and capture cookies
     extracted_cookiejar = None
     try:
-        def _sync_extract_with_cookiejar():
-            with youtube_dl.YoutubeDL(build_ydl_opts(source, format_selector=f"{format_id}")) as ydl:
-                _info = ydl.extract_info(source, download=False)
-                _cj = None
-                try:
-                    _cj = getattr(ydl, "cookiejar", None)
-                except Exception:
-                    _cj = None
-                return _info, _cj
-
-        info, extracted_cookiejar = await anyio.to_thread.run_sync(_sync_extract_with_cookiejar)
+        info, extracted_cookiejar = await _extract_info_with_cookiejar(
+            source, build_ydl_opts(source, format_selector=f"{format_id}")
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
 
@@ -590,34 +630,7 @@ async def proxy_download(request: Request, source: str, format_id: str):
         headers.setdefault("Referer", referer)
         headers.setdefault("Origin", referer[:-1])
 
-    # If yt-dlp had cookies for this host, include them
-    try:
-        parsed_direct = urlparse(direct_url)
-        host = parsed_direct.hostname
-        if host:
-            # Build cookie header from info-level cookies if present (yt-dlp cookiejar not exposed via info)
-            # Attempt to attach any cookies present in info["http_headers"] first
-            cookie_from_info = (info.get("http_headers") or {}).get("Cookie")
-            if cookie_from_info:
-                headers.setdefault("Cookie", cookie_from_info)
-            else:
-                # No Cookie header provided by extractor; try reconstructing from
-                # the cookie jar collected during the extraction step.
-                cj = extracted_cookiejar
-                if cj:
-                    cookie_pairs = []
-                    for c in cj:
-                        # Match cookie domain strictly: only send cookies to the exact domain
-                        # or its subdomains and avoid single-label domains (TLDs)
-                        if not getattr(c, "domain", None):
-                            continue
-                        dom = c.domain.lstrip(".")
-                        if dom and host and "." in dom and (host == dom or host.endswith("." + dom)):
-                            cookie_pairs.append(f"{c.name}={quote(c.value)}")
-                    if cookie_pairs:
-                        headers.setdefault("Cookie", "; ".join(cookie_pairs))
-    except Exception:
-        pass
+    _merge_extracted_cookies(headers, info, extracted_cookiejar, direct_url)
 
     # Forward client Range if present (enables resumable/partial content)
     client_range = request.headers.get("Range")
@@ -861,9 +874,12 @@ async def convert_mp3(request: Request, source: str, format_id: Optional[str] = 
         raise HTTPException(status_code=400, detail="Invalid source URL; must be http(s)")
 
     # Extract to obtain direct URL and headers
+    extracted_cookiejar = None
     try:
         fmt_selector = f"{format_id}" if format_id else "bestaudio/best"
-        info = await _extract_info_threaded(source, build_ydl_opts(source, format_selector=fmt_selector))
+        info, extracted_cookiejar = await _extract_info_with_cookiejar(
+            source, build_ydl_opts(source, format_selector=fmt_selector)
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
 
@@ -906,6 +922,8 @@ async def convert_mp3(request: Request, source: str, format_id: Optional[str] = 
     if referer:
         headers.setdefault("Referer", referer)
         headers.setdefault("Origin", referer[:-1])
+
+    _merge_extracted_cookies(headers, info, extracted_cookiejar, direct_url)
 
     # Construct header lines for ffmpeg
     header_lines = "\r\n".join([f"{k}: {v}" for k, v in headers.items()]) + "\r\n"
