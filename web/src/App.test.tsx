@@ -98,4 +98,30 @@ describe('App', () => {
     expect(screen.getByText(/download options/i)).toBeInTheDocument()
     expect(screen.getByText(/1080p/i)).toBeInTheDocument()
   })
+
+  it('continues rendering when localStorage.setItem throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('boom')
+      })
+
+    try {
+      expect(() => render(<App />)).not.toThrow()
+
+      await waitFor(() => {
+        expect(setItemSpy).toHaveBeenCalled()
+      })
+
+      expect(
+        await screen.findByRole('heading', {
+          name: /download from/i,
+        }),
+      ).toBeInTheDocument()
+    } finally {
+      setItemSpy.mockRestore()
+      warnSpy.mockRestore()
+    }
+  })
 })
