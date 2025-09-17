@@ -225,6 +225,81 @@ def test_proxy_download_streams_and_headers(monkeypatch, client: TestClient, moc
     assert r.content == b"test"
 
 
+def test_proxy_download_uses_httpx_when_curl_fails(monkeypatch, client: TestClient, mock_extract):
+    import server.main as main
+
+    instances = []
+
+    class FakeResponse:
+        def __init__(self):
+            self.status_code = 403
+            self.headers = {
+                "Content-Type": "video/mp4",
+                "Content-Length": "3",
+            }
+            self.closed = False
+            self.iterated = False
+
+        async def aiter_bytes(self, chunk_size=65536):  # type: ignore
+            self.iterated = True
+            yield b"ok"
+
+        async def aclose(self):
+            self.closed = True
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            self._req = None
+            self.closed = False
+            self.response = FakeResponse()
+            instances.append(self)
+
+        def build_request(self, method, url, headers=None):
+            self._req = (method, url, headers)
+            return self._req
+
+        async def send(self, request, stream=True):
+            return self.response
+
+        async def aclose(self):
+            self.closed = True
+
+    class ExplodingSession:
+        def __init__(self):
+            self.closed = False
+
+        def get(self, *args, **kwargs):
+            raise RuntimeError("curl boom")
+
+        def close(self):
+            self.closed = True
+
+    class FakeCurl:
+        def __init__(self):
+            self.sessions = []
+
+        def Session(self):  # type: ignore
+            sess = ExplodingSession()
+            self.sessions.append(sess)
+            return sess
+
+    monkeypatch.setattr(main.httpx, "AsyncClient", FakeClient)
+    fake_curl = FakeCurl()
+    monkeypatch.setattr(main, "curl_requests", fake_curl)
+
+    r = client.get(
+        "/api/download",
+        params={"source": "https://example.com/watch?v=abc123", "format_id": "18"},
+    )
+
+    assert r.status_code == 403
+    assert r.content == b"ok"
+    assert instances[0].response.iterated is True
+    assert instances[0].response.closed is True
+    assert instances[0].closed is True
+    assert fake_curl.sessions and fake_curl.sessions[0].closed is True
+
+
 def test_proxy_subtitle_downloads(monkeypatch, client: TestClient, mock_extract):
     import server.main as main
 
@@ -279,21 +354,40 @@ def test_convert_mp3_streams(monkeypatch, client: TestClient, mock_extract):
             self._idx += 1
             return b
 
+    class FakeStderr:
+        def __init__(self):
+            self.read_called = False
+
+        async def read(self) -> bytes:
+            self.read_called = True
+            return b""
+
     class FakeProc:
         def __init__(self):
             self.stdout = FakeStdout([b"ID3", b"\x00\x00\x00"])
-            self.stderr = None
+            self.stderr = FakeStderr()
             self.returncode = None
+            self.killed = False
+            self.wait_calls = 0
 
         def kill(self):
+            self.killed = True
             self.returncode = 0
 
+        async def wait(self):
+            self.wait_calls += 1
+            self.returncode = 0
+            return self.returncode
+
     captured_cmd: Dict[str, Any] = {}
+    created_proc: Dict[str, FakeProc] = {}
 
     async def fake_create_subprocess_exec(*args, **kwargs):
         captured_cmd["args"] = args
         captured_cmd["kwargs"] = kwargs
-        return FakeProc()
+        proc = FakeProc()
+        created_proc["proc"] = proc
+        return proc
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
 
@@ -318,6 +412,10 @@ def test_convert_mp3_streams(monkeypatch, client: TestClient, mock_extract):
     header_value = captured_cmd["args"][header_index + 1]
     assert "Cookie: session=abc==; alt=plus+value" in header_value
     assert "%" not in header_value
+    fake_proc = created_proc["proc"]
+    assert fake_proc.killed is True
+    assert fake_proc.wait_calls == 1
+    assert fake_proc.stderr.read_called is True
 
 
 def test_cookies_status(monkeypatch, client: TestClient, tmp_path):
